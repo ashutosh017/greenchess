@@ -1,15 +1,27 @@
+"use client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { auth } from "@/auth";
+import { UserAvatar } from "./user/avatar";
+import { useSession } from "next-auth/react";
+import Image from "next/image";
 
 export function Header() {
+  const session = useSession();
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-16 items-center justify-between px-6">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-base">
-            ♔
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Image
+              src="/wn.png" // Use "/" to reference the public folder
+              alt="GreenChess Logo"
+              width={24} // Required: 24px matches tailwind 'w-6'
+              height={24} // Required: 24px matches tailwind 'h-6'
+              // className="scale-x-[-1]"
+            />
           </div>
           <span className="text-lg font-bold tracking-tight">GreenChess</span>
         </Link>
@@ -45,23 +57,30 @@ export function Header() {
         {/* Actions */}
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <Link href="/signin">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs bg-transparent"
-            >
-              Sign In
-            </Button>
-          </Link>
-          <Link href="/signup">
-            <Button
-              size="sm"
-              className="text-xs bg-primary hover:bg-primary/90"
-            >
-              Sign Up
-            </Button>
-          </Link>
+          {session.data ? (
+            <UserAvatar session={session.data} />
+          ) : (
+            <>
+              <Link href="/signin">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs bg-transparent"
+                >
+                  Sign In
+                </Button>
+              </Link>
+
+              <Link href="/signup">
+                <Button
+                  size="sm"
+                  className="text-xs bg-primary hover:bg-primary/90"
+                >
+                  Sign Up
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>

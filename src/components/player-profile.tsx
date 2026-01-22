@@ -1,5 +1,5 @@
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 interface RatingStats {
   format: string;
@@ -12,9 +12,30 @@ interface RatingStats {
 
 export function PlayerProfile() {
   const ratingStats: RatingStats[] = [
-    { format: 'Bullet', rating: 1945, games: 284, wins: 162, losses: 102, draws: 20 },
-    { format: 'Blitz', rating: 1887, games: 456, wins: 245, losses: 178, draws: 33 },
-    { format: 'Rapid', rating: 1823, games: 123, wins: 68, losses: 45, draws: 10 },
+    {
+      format: "Bullet",
+      rating: 1945,
+      games: 284,
+      wins: 162,
+      losses: 102,
+      draws: 20,
+    },
+    {
+      format: "Blitz",
+      rating: 1887,
+      games: 456,
+      wins: 245,
+      losses: 178,
+      draws: 33,
+    },
+    {
+      format: "Rapid",
+      rating: 1823,
+      games: 123,
+      wins: 68,
+      losses: 45,
+      draws: 10,
+    },
   ];
 
   return (
@@ -67,8 +88,12 @@ export function PlayerProfile() {
             <Card key={stat.format} className="p-6 border-border">
               <div className="space-y-4">
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">{stat.format}</p>
-                  <p className="text-3xl font-bold text-primary">{stat.rating}</p>
+                  <p className="text-sm text-muted-foreground mb-1">
+                    {stat.format}
+                  </p>
+                  <p className="text-3xl font-bold text-primary">
+                    {stat.rating}
+                  </p>
                 </div>
 
                 <div className="space-y-2 text-sm">
@@ -78,15 +103,21 @@ export function PlayerProfile() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Wins</span>
-                    <span className="font-medium text-green-400">{stat.wins}</span>
+                    <span className="font-medium text-green-400">
+                      {stat.wins}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Losses</span>
-                    <span className="font-medium text-red-400">{stat.losses}</span>
+                    <span className="font-medium text-red-400">
+                      {stat.losses}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Draws</span>
-                    <span className="font-medium text-yellow-400">{stat.draws}</span>
+                    <span className="font-medium text-yellow-400">
+                      {stat.draws}
+                    </span>
                   </div>
                 </div>
 
@@ -108,20 +139,44 @@ export function PlayerProfile() {
         <h2 className="text-2xl font-bold">Recent Games</h2>
         <Card className="divide-y divide-border">
           {[
-            { opponent: 'GrandmasterAlex', result: 'Won', rating: 2100, time: '2 hours ago' },
-            { opponent: 'TacticalTina', result: 'Lost', rating: 1950, time: '5 hours ago' },
-            { opponent: 'EndgameEric', result: 'Drew', rating: 1875, time: '1 day ago' },
+            {
+              opponent: "GrandmasterAlex",
+              result: "Won",
+              rating: 2100,
+              time: "2 hours ago",
+            },
+            {
+              opponent: "TacticalTina",
+              result: "Lost",
+              rating: 1950,
+              time: "5 hours ago",
+            },
+            {
+              opponent: "EndgameEric",
+              result: "Drew",
+              rating: 1875,
+              time: "1 day ago",
+            },
           ].map((game, idx) => (
-            <div key={idx} className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+            <div
+              key={idx}
+              className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
+            >
               <div className="flex-grow">
                 <p className="font-semibold">{game.opponent}</p>
-                <p className="text-sm text-muted-foreground">{game.rating} rating • {game.time}</p>
+                <p className="text-sm text-muted-foreground">
+                  {game.rating} rating • {game.time}
+                </p>
               </div>
-              <div className={`px-3 py-1 rounded font-semibold text-sm ${
-                game.result === 'Won' ? 'bg-green-500/20 text-green-400' :
-                game.result === 'Lost' ? 'bg-red-500/20 text-red-400' :
-                'bg-yellow-500/20 text-yellow-400'
-              }`}>
+              <div
+                className={`px-3 py-1 rounded font-semibold text-sm ${
+                  game.result === "Won"
+                    ? "bg-green-500/20 text-green-400"
+                    : game.result === "Lost"
+                      ? "bg-red-500/20 text-red-400"
+                      : "bg-yellow-500/20 text-yellow-400"
+                }`}
+              >
                 {game.result}
               </div>
             </div>
@@ -133,11 +188,16 @@ export function PlayerProfile() {
       <div className="space-y-4">
         <h2 className="text-2xl font-bold">Achievements</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {['🏆', '⚡', '🎯', '🔥', '💎', '👑', '🌟', '🎪'].map((emoji, idx) => (
-            <Card key={idx} className="p-4 flex items-center justify-center hover:border-primary transition-colors">
-              <span className="text-3xl">{emoji}</span>
-            </Card>
-          ))}
+          {["🏆", "⚡", "🎯", "🔥", "💎", "👑", "🌟", "🎪"].map(
+            (emoji, idx) => (
+              <Card
+                key={idx}
+                className="p-4 flex items-center justify-center hover:border-primary transition-colors"
+              >
+                <span className="text-3xl">{emoji}</span>
+              </Card>
+            ),
+          )}
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 interface GameMode {
   name: string;
@@ -11,32 +11,32 @@ interface GameMode {
 
 const gameModes: GameMode[] = [
   {
-    name: 'Bullet',
-    time: '1+0',
-    description: 'Super fast chess, 1 minute per side',
+    name: "Bullet",
+    time: "1+0",
+    description: "Super fast chess, 1 minute per side",
     players: 2847,
-    icon: '⚡',
+    icon: "⚡",
   },
   {
-    name: 'Blitz',
-    time: '5+0',
-    description: 'Fast paced chess, 5 minutes per side',
+    name: "Blitz",
+    time: "5+0",
+    description: "Fast paced chess, 5 minutes per side",
     players: 5432,
-    icon: '🔥',
+    icon: "🔥",
   },
   {
-    name: 'Rapid',
-    time: '15+10',
-    description: 'Strategic chess, 15 minutes per side',
+    name: "Rapid",
+    time: "15+10",
+    description: "Strategic chess, 15 minutes per side",
     players: 3891,
-    icon: '⏱️',
+    icon: "⏱️",
   },
   {
-    name: 'Classical',
-    time: '30+30',
-    description: 'Deep thinking chess, 30 minutes per side',
+    name: "Classical",
+    time: "30+30",
+    description: "Deep thinking chess, 30 minutes per side",
     players: 1245,
-    icon: '🎓',
+    icon: "🎓",
   },
 ];
 
@@ -47,14 +47,18 @@ export function GameSelection() {
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-bold">Play Chess Online</h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Challenge opponents from around the world in various time formats. Choose your preferred game mode and start playing instantly.
+          Challenge opponents from around the world in various time formats.
+          Choose your preferred game mode and start playing instantly.
         </p>
       </div>
 
       {/* Game Modes Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {gameModes.map((mode) => (
-          <Card key={mode.name} className="p-6 hover:border-primary transition-colors cursor-pointer hover:bg-card/80">
+          <Card
+            key={mode.name}
+            className="p-6 hover:border-primary transition-colors cursor-pointer hover:bg-card/80"
+          >
             <div className="flex flex-col gap-4 h-full">
               <div className="flex items-start justify-between">
                 <div>
@@ -64,7 +68,9 @@ export function GameSelection() {
                 <span className="text-3xl">{mode.icon}</span>
               </div>
 
-              <p className="text-sm text-muted-foreground">{mode.description}</p>
+              <p className="text-sm text-muted-foreground">
+                {mode.description}
+              </p>
 
               <div className="mt-auto">
                 <p className="text-xs text-muted-foreground mb-3">
@@ -84,7 +90,8 @@ export function GameSelection() {
         <Card className="p-6 bg-card/50">
           <h3 className="text-lg font-bold mb-3">Learn Chess</h3>
           <p className="text-sm text-muted-foreground mb-4">
-            Master the fundamentals with interactive lessons and tactics puzzles.
+            Master the fundamentals with interactive lessons and tactics
+            puzzles.
           </p>
           <Button variant="outline" className="w-full bg-transparent">
             View Lessons

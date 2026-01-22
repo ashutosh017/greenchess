@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Header } from "@/components/header";
 import { GameSelection } from "@/components/game-selection";
 import { ChessBoard } from "@/components/chess-board";
 import { PlayerProfile } from "@/components/player-profile";
 import { GameAnalysis } from "@/components/game-analysis";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Header } from "@/components/header";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<
@@ -16,12 +17,11 @@ export default function Home() {
   >("home");
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen text-foreground ">
       <Header />
-
-      <main className="relative">
+      <main className="relative top-0">
         {/* Hero Section */}
-        <section className="border-b border-border">
+        <section className="border-b border-border flex items-center ">
           <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
             <div className="text-center">
               <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-6">
@@ -32,9 +32,16 @@ export default function Home() {
                 your skills on the world's leading chess platform.
               </p>
               <div className="flex gap-3 justify-center flex-wrap">
-                <Button size="lg" className="bg-primary hover:bg-primary/90">
+                <Link
+                  href={"/play/board"}
+                  className={cn(
+                    buttonVariants({
+                      className: "bg-primary hover:bg-primary/90",
+                    }),
+                  )}
+                >
                   Start Playing Now
-                </Button>
+                </Link>
                 <Button size="lg" variant="outline">
                   Watch Tutorial
                 </Button>

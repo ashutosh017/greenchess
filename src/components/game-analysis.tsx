@@ -1,5 +1,5 @@
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 interface Move {
   number: number;
@@ -11,11 +11,11 @@ interface Move {
 
 export function GameAnalysis() {
   const moves: Move[] = [
-    { number: 1, white: 'e4', black: 'c5', evaluation: 0.2, accuracy: 100 },
-    { number: 2, white: 'Nf3', black: 'd6', evaluation: 0.1, accuracy: 98 },
-    { number: 3, white: 'd4', black: 'cxd4', evaluation: 0.3, accuracy: 96 },
-    { number: 4, white: 'Nxd4', black: 'Nf6', evaluation: 0.2, accuracy: 94 },
-    { number: 5, white: 'Nc3', black: 'a6', evaluation: 0.4, accuracy: 92 },
+    { number: 1, white: "e4", black: "c5", evaluation: 0.2, accuracy: 100 },
+    { number: 2, white: "Nf3", black: "d6", evaluation: 0.1, accuracy: 98 },
+    { number: 3, white: "d4", black: "cxd4", evaluation: 0.3, accuracy: 96 },
+    { number: 4, white: "Nxd4", black: "Nf6", evaluation: 0.2, accuracy: 94 },
+    { number: 5, white: "Nc3", black: "a6", evaluation: 0.4, accuracy: 92 },
   ];
 
   return (
@@ -54,21 +54,32 @@ export function GameAnalysis() {
             <div className="overflow-y-auto max-h-96">
               <div className="divide-y divide-border">
                 {moves.map((move) => (
-                  <div key={move.number} className="p-4 hover:bg-muted/50 transition-colors">
+                  <div
+                    key={move.number}
+                    className="p-4 hover:bg-muted/50 transition-colors"
+                  >
                     <div className="grid grid-cols-3 gap-2 mb-2">
                       <div>
-                        <p className="text-xs text-muted-foreground mb-1">Move {move.number}</p>
+                        <p className="text-xs text-muted-foreground mb-1">
+                          Move {move.number}
+                        </p>
                         <p className="font-semibold">{move.white}</p>
                       </div>
                       {move.black && (
                         <div>
-                          <p className="text-xs text-muted-foreground mb-1">Black</p>
+                          <p className="text-xs text-muted-foreground mb-1">
+                            Black
+                          </p>
                           <p className="font-semibold">{move.black}</p>
                         </div>
                       )}
                       <div>
-                        <p className="text-xs text-muted-foreground mb-1">Eval</p>
-                        <p className="font-semibold text-primary">+{move.evaluation.toFixed(1)}</p>
+                        <p className="text-xs text-muted-foreground mb-1">
+                          Eval
+                        </p>
+                        <p className="font-semibold text-primary">
+                          +{move.evaluation.toFixed(1)}
+                        </p>
                       </div>
                     </div>
 
@@ -80,7 +91,9 @@ export function GameAnalysis() {
                           style={{ width: `${move.accuracy}%` }}
                         />
                       </div>
-                      <span className="text-xs text-muted-foreground">{move.accuracy}%</span>
+                      <span className="text-xs text-muted-foreground">
+                        {move.accuracy}%
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -143,14 +156,33 @@ export function GameAnalysis() {
         <h2 className="text-2xl font-bold">Key Moments</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
-            { move: 'Move 15', title: 'Critical Position', description: 'Best move was found - gained +1.2 advantage' },
-            { move: 'Move 28', title: 'Missed Tactic', description: 'Missed a forcing sequence worth +3.5' },
-            { move: 'Move 35', title: 'Excellent Play', description: 'Executed endgame perfectly - advantage secured' },
+            {
+              move: "Move 15",
+              title: "Critical Position",
+              description: "Best move was found - gained +1.2 advantage",
+            },
+            {
+              move: "Move 28",
+              title: "Missed Tactic",
+              description: "Missed a forcing sequence worth +3.5",
+            },
+            {
+              move: "Move 35",
+              title: "Excellent Play",
+              description: "Executed endgame perfectly - advantage secured",
+            },
           ].map((moment, idx) => (
-            <Card key={idx} className="p-4 border-border hover:border-primary transition-colors">
-              <p className="text-xs text-primary font-semibold mb-1">{moment.move}</p>
+            <Card
+              key={idx}
+              className="p-4 border-border hover:border-primary transition-colors"
+            >
+              <p className="text-xs text-primary font-semibold mb-1">
+                {moment.move}
+              </p>
               <h3 className="font-bold mb-1">{moment.title}</h3>
-              <p className="text-sm text-muted-foreground">{moment.description}</p>
+              <p className="text-sm text-muted-foreground">
+                {moment.description}
+              </p>
             </Card>
           ))}
         </div>

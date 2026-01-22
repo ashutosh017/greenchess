@@ -1,23 +1,36 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { useState } from 'react';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { Header } from '@/components/header';
+import React, { useEffect } from "react";
+import { useState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Header } from "@/components/header";
+import { signIn, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { FcGoogle } from "react-icons/fc";
+import { FaGithub } from "react-icons/fa";
 
 export default function SignUp() {
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
+    username: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace("/");
+    }
+  }, [status, router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -29,35 +42,45 @@ export default function SignUp() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setSuccess(false);
     setIsLoading(true);
 
-    if (!formData.username || !formData.email || !formData.password || !formData.confirmPassword) {
-      setError('Please fill in all fields');
+    if (
+      !formData.username ||
+      !formData.email ||
+      !formData.password ||
+      !formData.confirmPassword
+    ) {
+      setError("Please fill in all fields");
       setIsLoading(false);
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setError("Passwords do not match");
       setIsLoading(false);
       return;
     }
 
     if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters');
+      setError("Password must be at least 8 characters");
       setIsLoading(false);
       return;
     }
 
     setTimeout(() => {
-      console.log('Sign up attempted with:', {
+      console.log("Sign up attempted with:", {
         username: formData.username,
         email: formData.email,
       });
       setSuccess(true);
-      setFormData({ username: '', email: '', password: '', confirmPassword: '' });
+      setFormData({
+        username: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+      });
     }, 1000);
   };
 
@@ -68,7 +91,9 @@ export default function SignUp() {
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold mb-2">Create Account</h1>
-            <p className="text-foreground/70">Join millions of chess players worldwide</p>
+            <p className="text-foreground/70">
+              Join millions of chess players worldwide
+            </p>
           </div>
 
           <Card className="p-8">
@@ -86,7 +111,9 @@ export default function SignUp() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1.5">Username</label>
+                <label className="block text-sm font-medium mb-1.5">
+                  Username
+                </label>
                 <Input
                   type="text"
                   name="username"
@@ -98,7 +125,9 @@ export default function SignUp() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1.5">Email Address</label>
+                <label className="block text-sm font-medium mb-1.5">
+                  Email Address
+                </label>
                 <Input
                   type="email"
                   name="email"
@@ -110,7 +139,9 @@ export default function SignUp() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1.5">Password</label>
+                <label className="block text-sm font-medium mb-1.5">
+                  Password
+                </label>
                 <Input
                   type="password"
                   name="password"
@@ -119,11 +150,15 @@ export default function SignUp() {
                   onChange={handleChange}
                   disabled={isLoading || success}
                 />
-                <p className="text-xs text-foreground/50 mt-1">Minimum 8 characters</p>
+                <p className="text-xs text-foreground/50 mt-1">
+                  Minimum 8 characters
+                </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1.5">Confirm Password</label>
+                <label className="block text-sm font-medium mb-1.5">
+                  Confirm Password
+                </label>
                 <Input
                   type="password"
                   name="confirmPassword"
@@ -135,13 +170,16 @@ export default function SignUp() {
               </div>
 
               <div className="flex items-start gap-2">
-                <input type="checkbox" className="w-4 h-4 rounded border border-border mt-1" />
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 rounded border border-border mt-1"
+                />
                 <span className="text-xs text-foreground/70">
-                  I agree to the{' '}
+                  I agree to the{" "}
                   <Link href="#" className="text-primary hover:underline">
                     Terms of Service
-                  </Link>{' '}
-                  and{' '}
+                  </Link>{" "}
+                  and{" "}
                   <Link href="#" className="text-primary hover:underline">
                     Privacy Policy
                   </Link>
@@ -153,7 +191,11 @@ export default function SignUp() {
                 className="w-full bg-primary hover:bg-primary/90"
                 disabled={isLoading || success}
               >
-                {isLoading ? 'Creating account...' : success ? 'Account Created!' : 'Create Account'}
+                {isLoading
+                  ? "Creating account..."
+                  : success
+                    ? "Account Created!"
+                    : "Create Account"}
               </Button>
             </form>
 
@@ -164,17 +206,30 @@ export default function SignUp() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" disabled={isLoading || success}>
+              <Button
+                onClick={() => signIn("google")}
+                variant="outline"
+                disabled={isLoading}
+              >
+                <FcGoogle className="mr-2 h-4 w-4" />
                 Google
               </Button>
-              <Button variant="outline" disabled={isLoading || success}>
+              <Button
+                onClick={() => signIn("github")}
+                variant="outline"
+                disabled={isLoading}
+              >
+                <FaGithub className="mr-2 h-4 w-4" />
                 GitHub
               </Button>
             </div>
 
             <div className="mt-6 text-center text-sm text-foreground/70">
-              Already have an account?{' '}
-              <Link href="/signin" className="text-primary font-medium hover:underline">
+              Already have an account?{" "}
+              <Link
+                href="/signin"
+                className="text-primary font-medium hover:underline"
+              >
                 Sign In
               </Link>
             </div>

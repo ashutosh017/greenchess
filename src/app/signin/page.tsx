@@ -1,18 +1,31 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Header } from "@/components/header";
+import { signIn, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { FcGoogle } from "react-icons/fc";
+import { FaGithub } from "react-icons/fa";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace("/");
+    }
+  }, [status, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,10 +122,20 @@ export default function SignIn() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" disabled={isLoading}>
+              <Button
+                onClick={() => signIn("google")}
+                variant="outline"
+                disabled={isLoading}
+              >
+                <FcGoogle className="mr-2 h-4 w-4" />
                 Google
               </Button>
-              <Button variant="outline" disabled={isLoading}>
+              <Button
+                onClick={() => signIn("github")}
+                variant="outline"
+                disabled={isLoading}
+              >
+                <FaGithub className="mr-2 h-4 w-4" />
                 GitHub
               </Button>
             </div>
