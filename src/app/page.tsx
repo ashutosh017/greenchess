@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { GameSelection } from "@/components/game-selection";
 import { ChessBoard } from "@/components/chess-board";
 import { PlayerProfile } from "@/components/player-profile";
@@ -10,11 +10,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Header } from "@/components/header";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { pusherclient as pusher } from "@/lib/pusher-client";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<
     "home" | "play" | "profile" | "analysis"
   >("home");
+
+  useEffect(() => {
+    // Any side effects or data fetching can be done her
+  }, []);
 
   return (
     <div className="min-h-screen text-foreground ">
@@ -33,7 +38,7 @@ export default function Home() {
               </p>
               <div className="flex gap-3 justify-center flex-wrap">
                 <Link
-                  href={"/play/board"}
+                  href={"/play"}
                   className={cn(
                     buttonVariants({
                       className: "bg-primary hover:bg-primary/90",

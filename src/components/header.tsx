@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
 import { UserAvatar } from "./user/avatar";
 import { useSession } from "next-auth/react";
 import Image from "next/image";

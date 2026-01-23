@@ -1,0 +1,116 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String    @id @default(uuid())
+  name          String?
+  username      String?   @unique
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?   // For Google profile picture
+  rating        Int       @default(1200) // General ELO
+  country       String?
+  createdAt     DateTime  @default(now())
+
+  // Game Relations
+  gamesAsWhite  Game[]    @relation("WhitePlayer")
+  gamesAsBlack  Game[]    @relation("BlackPlayer")
+  gamesWon      Game[]    @relation("GameWinner")
+
+  // NextAuth Relations (Required for Google/GitHub Login)
+  accounts      Account[]
+  sessions      Session[]
+
+  @@map("users")
+}
+
+model Game {
+  id            String     @id @default(uuid())
+  
+  // Game Configuration
+  timeControl   String     // e.g., "10+0", "3+2" (Blitz/Rapid)
+  startingFen   String     @default("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+  
+  // Current State
+  currentFen    String     // The board state right now (important for reconnections)
+  pgn           String?    @db.Text // Full move history (e4 e5 Nf3...)
+
+  // Players
+  whitePlayerId String
+  blackPlayerId String
+  whitePlayer   User       @relation("WhitePlayer", fields: [whitePlayerId], references: [id])
+  blackPlayer   User       @relation("BlackPlayer", fields: [blackPlayerId], references: [id])
+
+  // Outcome
+  winnerId      String?
+  winner        User?      @relation("GameWinner", fields: [winnerId], references: [id])
+  status        GameStatus @default(IN_PROGRESS)
+  result        GameResult? // Null until game ends
+
+  // Timestamps
+  createdAt     DateTime   @default(now())
+  endedAt       DateTime?
+
+  @@index([status]) // Useful for finding "active" games
+  @@index([whitePlayerId, blackPlayerId]) // Useful for user match history
+  @@map("games")
+}
+
+// -- Enums for Type Safety --
+
+enum GameStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABORTED
+  TIMEOUT
+}
+
+enum GameResult {
+  WHITE_WINS
+  BLACK_WINS
+  DRAW
+}
+
+// -- NextAuth boilerplate (Don't touch this if using NextAuth Adapter) --
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}

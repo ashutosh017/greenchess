@@ -1,401 +1,415 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Link from "next/link";
+import { pusherclient } from "@/lib/pusher-client";
 
-interface GameMode {
-  name: string;
-  time: string;
-  description: string;
-  players: number;
-  icon: string;
-  color: string;
+interface BoardPosition {
+  piece: string | null;
+  color: "white" | "black" | null;
 }
 
-const gameModes: GameMode[] = [
-  {
-    name: "Bullet",
-    time: "1+0",
-    description: "Super fast chess, 1 minute per side",
-    players: 2847,
-    icon: "⚡",
-    color: "from-red-500 to-red-600",
-  },
-  {
-    name: "Blitz",
-    time: "5+0",
-    description: "Fast paced chess, 5 minutes per side",
-    players: 5432,
-    icon: "🔥",
-    color: "from-orange-500 to-orange-600",
-  },
-  {
-    name: "Rapid",
-    time: "15+10",
-    description: "Strategic chess, 15 minutes per side",
-    players: 3891,
-    icon: "⏱️",
-    color: "from-blue-500 to-blue-600",
-  },
-  {
-    name: "Classical",
-    time: "30+30",
-    description: "Deep thinking chess, 30 minutes per side",
-    players: 1245,
-    icon: "🎓",
-    color: "from-purple-500 to-purple-600",
-  },
-];
+type Board = BoardPosition[][];
 
-const opponentModes = [
-  {
-    name: "Play Online",
-    description: "Challenge players from around the world",
-    icon: "🌍",
-    subtext: "10M+ active players",
-  },
-  {
-    name: "Play Computer",
-    description: "Test your skills against AI opponents",
-    icon: "🤖",
-    subtext: "Adjustable difficulty levels",
-  },
-  {
-    name: "Play Friend",
-    description: "Challenge a friend with a unique link",
-    icon: "👥",
-    subtext: "Share and play together",
-  },
-];
+const PIECES = {
+  K: "♔",
+  Q: "♕",
+  R: "♖",
+  B: "♗",
+  N: "♘",
+  P: "♙",
+  k: "♚",
+  q: "♛",
+  r: "♜",
+  b: "♝",
+  n: "♞",
+  p: "♟",
+};
 
-export default function PlayPage() {
-  const [selectedMode, setSelectedMode] = useState<string | null>(null);
-  const [selectedTime, setSelectedTime] = useState<string>("blitz");
+const createInitialBoard = (): Board => {
+  const board: Board = Array(8)
+    .fill(null)
+    .map(() =>
+      Array(8)
+        .fill(null)
+        .map(() => ({ piece: null, color: null })),
+    );
 
+  const positions = [
+    [0, "r"],
+    [1, "n"],
+    [2, "b"],
+    [3, "q"],
+    [4, "k"],
+    [5, "b"],
+    [6, "n"],
+    [7, "r"],
+  ];
+
+  // Black pieces
+  positions.forEach(([col, piece]) => {
+    board[0][col as number] = { piece: piece as string, color: "black" };
+  });
+  for (let i = 0; i < 8; i++) {
+    board[1][i] = { piece: "p", color: "black" };
+  }
+
+  // White pieces
+  for (let i = 0; i < 8; i++) {
+    board[6][i] = { piece: "P", color: "white" };
+  }
+  positions.forEach(([col, piece]) => {
+    board[7][col as number] = {
+      piece: (piece as string).toUpperCase(),
+      color: "white",
+    };
+  });
+
+  return board;
+};
+
+const isValidMove = (
+  board: Board,
+  from: [number, number],
+  to: [number, number],
+): boolean => {
+  const [fromRow, fromCol] = from;
+  const [toRow, toCol] = to;
+
+  if (fromRow === toRow && fromCol === toCol) return false;
+  if (toRow < 0 || toRow > 7 || toCol < 0 || toCol > 7) return false;
+
+  const piece = board[fromRow][fromCol];
+  const target = board[toRow][toCol];
+
+  if (!piece.piece) return false;
+  if (target.piece && target.color === piece.color) return false;
+
+  const pieceName = piece.piece.toLowerCase();
+  const rowDiff = Math.abs(fromRow - toRow);
+  const colDiff = Math.abs(fromCol - toCol);
+
+  switch (pieceName) {
+    case "p": {
+      const direction = piece.color === "white" ? -1 : 1;
+      const startRow = piece.color === "white" ? 6 : 1;
+
+      if (target.piece) {
+        return colDiff === 1 && toRow - fromRow === direction;
+      } else {
+        if (colDiff !== 0) return false;
+        if (toRow - fromRow === direction) return true;
+        if (fromRow === startRow && toRow - fromRow === 2 * direction) {
+          const middleRow = fromRow + direction;
+          return !board[middleRow][fromCol].piece;
+        }
+        return false;
+      }
+    }
+    case "n":
+      return (
+        (rowDiff === 2 && colDiff === 1) || (rowDiff === 1 && colDiff === 2)
+      );
+    case "b":
+      if (rowDiff !== colDiff) return false;
+      const bRowStep = toRow > fromRow ? 1 : -1;
+      const bColStep = toCol > fromCol ? 1 : -1;
+      for (let i = 1; i < rowDiff; i++) {
+        if (board[fromRow + i * bRowStep][fromCol + i * bColStep].piece)
+          return false;
+      }
+      return true;
+    case "r":
+      if (fromRow !== toRow && fromCol !== toCol) return false;
+      if (fromRow === toRow) {
+        const step = toCol > fromCol ? 1 : -1;
+        for (let i = fromCol + step; i !== toCol; i += step) {
+          if (board[fromRow][i].piece) return false;
+        }
+      } else {
+        const step = toRow > fromRow ? 1 : -1;
+        for (let i = fromRow + step; i !== toRow; i += step) {
+          if (board[i][fromCol].piece) return false;
+        }
+      }
+      return true;
+    case "q":
+      if (fromRow === toRow || fromCol === toCol || rowDiff === colDiff) {
+        if (fromRow === toRow) {
+          const step = toCol > fromCol ? 1 : -1;
+          for (let i = fromCol + step; i !== toCol; i += step) {
+            if (board[fromRow][i].piece) return false;
+          }
+          return true;
+        } else if (fromCol === toCol) {
+          const step = toRow > fromRow ? 1 : -1;
+          for (let i = fromRow + step; i !== toRow; i += step) {
+            if (board[i][fromCol].piece) return false;
+          }
+          return true;
+        } else {
+          const rStep = toRow > fromRow ? 1 : -1;
+          const cStep = toCol > fromCol ? 1 : -1;
+          for (let i = 1; i < rowDiff; i++) {
+            if (board[fromRow + i * rStep][fromCol + i * cStep].piece)
+              return false;
+          }
+          return true;
+        }
+      }
+      return false;
+    case "k":
+      return rowDiff <= 1 && colDiff <= 1;
+    default:
+      return false;
+  }
+};
+
+export default function BoardPage() {
+  const [board, setBoard] = useState<Board>(createInitialBoard());
+  const [selectedSquare, setSelectedSquare] = useState<[number, number] | null>(
+    null,
+  );
+  const [validMoves, setValidMoves] = useState<[number, number][]>([]);
+  const [currentPlayer, setCurrentPlayer] = useState<"white" | "black">(
+    "white",
+  );
+  const [moveHistory, setMoveHistory] = useState<string[]>([]);
+  const [gameStatus, setGameStatus] = useState<string>("White to move");
+
+  const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
+  const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
+
+  const handleSquareClick = (row: number, col: number) => {
+    const square: [number, number] = [row, col];
+
+    if (validMoves.some((move) => move[0] === row && move[1] === col)) {
+      if (selectedSquare) {
+        makeMove(selectedSquare, square);
+      }
+      return;
+    }
+
+    const piece = board[row][col];
+    if (piece.piece && piece.color === currentPlayer) {
+      setSelectedSquare(square);
+      const moves: [number, number][] = [];
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (isValidMove(board, square, [r, c])) {
+            moves.push([r, c]);
+          }
+        }
+      }
+      setValidMoves(moves);
+    } else {
+      setSelectedSquare(null);
+      setValidMoves([]);
+    }
+  };
+
+  const makeMove = (from: [number, number], to: [number, number]) => {
+    const newBoard = board.map((row) => [...row]);
+    const piece = newBoard[from[0]][from[1]];
+    const target = newBoard[to[0]][to[1]];
+
+    newBoard[to[0]][to[1]] = piece;
+    newBoard[from[0]][from[1]] = { piece: null, color: null };
+
+    const fromSquare = files[from[1]] + ranks[from[0]];
+    const toSquare = files[to[1]] + ranks[to[0]];
+    const moveNotation = `${piece.piece}${toSquare}${target.piece ? "x" : ""}`;
+
+    setBoard(newBoard);
+    setMoveHistory([...moveHistory, moveNotation]);
+    setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
+    setGameStatus(`${currentPlayer === "white" ? "Black" : "White"} to move`);
+    setSelectedSquare(null);
+    setValidMoves([]);
+  };
+
+  const resetBoard = () => {
+    setBoard(createInitialBoard());
+    setSelectedSquare(null);
+    setValidMoves([]);
+    setCurrentPlayer("white");
+    setMoveHistory([]);
+    setGameStatus("White to move");
+  };
+  useEffect(() => {
+    const channel = pusherclient.subscribe("game-channel");
+    channel.bind("person-join", (data: { msg: string; uesrEmail: string }) => {
+      console.log(data);
+      //   alert("user " + data.uesrEmail + " has joined the game");
+    });
+    return () => {
+      pusherclient.unsubscribe("game-channel");
+      channel.unbind("person-joine");
+    };
+  }, []);
   return (
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="relative">
-        {/* Hero Section */}
-        <section className="border-b border-border">
-          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
-            <div className="text-center space-y-4 mb-12">
-              <h1 className="text-5xl sm:text-6xl font-bold tracking-tight">
-                Start Playing Now
-              </h1>
-              <p className="text-xl text-foreground/70 max-w-3xl mx-auto">
-                Choose your game mode and opponent type to begin your chess
-                journey. Play instantly with players worldwide or challenge the
-                computer.
-              </p>
-            </div>
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-8 flex items-center justify-between">
+          <h1 className="text-4xl font-bold">Play Chess</h1>
+          <Link href="/play">
+            <Button variant="outline">Back to Play</Button>
+          </Link>
+        </div>
 
-            {/* Opponent Selection */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
-              {opponentModes.map((mode) => (
-                <Link
-                  key={mode.name}
-                  href={mode.name === "Play Online" ? "/play/online" : "#"}
-                >
-                  <button
-                    onClick={() => setSelectedMode(mode.name)}
-                    className={`p-6 rounded-lg border-2 transition-all text-left w-full ${
-                      selectedMode === mode.name
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50"
-                    }`}
-                  >
-                    <div className="text-4xl mb-3">{mode.icon}</div>
-                    <h3 className="text-lg font-bold mb-1">{mode.name}</h3>
-                    <p className="text-sm text-foreground/70 mb-2">
-                      {mode.description}
-                    </p>
-                    <p className="text-xs text-primary font-medium">
-                      {mode.subtext}
-                    </p>
-                  </button>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Game Mode Selection */}
-        <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
-          <div className="mb-12">
-            <h2 className="text-3xl font-bold mb-2">Select Time Control</h2>
-            <p className="text-foreground/70">
-              {selectedMode &&
-                `Playing ${selectedMode} - Choose your preferred time format`}
-            </p>
-          </div>
-
-          {/* Tabs for different time controls view */}
-          <Tabs
-            value={selectedTime}
-            onValueChange={setSelectedTime}
-            className="mb-8"
-          >
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 mb-8">
-              <TabsTrigger value="bullet">Bullet (1+0)</TabsTrigger>
-              <TabsTrigger value="blitz">Blitz (5+0)</TabsTrigger>
-              <TabsTrigger value="rapid">Rapid (15+10)</TabsTrigger>
-              <TabsTrigger value="classical">Classical (30+30)</TabsTrigger>
-            </TabsList>
-
-            {/* Game Mode Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {gameModes.map((mode) => (
-                <Card
-                  key={mode.name}
-                  className="p-6 hover:shadow-lg transition-all hover:border-primary group cursor-pointer"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h3 className="text-2xl font-bold">{mode.name}</h3>
-                      <p className="text-primary font-semibold text-sm mt-1">
-                        {mode.time}
-                      </p>
-                    </div>
-                    <span className="text-4xl">{mode.icon}</span>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Board Section */}
+          <div className="lg:col-span-3">
+            <Card className="p-6">
+              {/* Player Info - Black */}
+              <div className="bg-card border border-border rounded-lg p-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-sm">Computer (Black)</h3>
+                    <p className="text-xs text-foreground/70">Rating: 1800</p>
                   </div>
+                  <div className="text-2xl font-bold text-primary">00:30</div>
+                </div>
+              </div>
 
-                  <p className="text-sm text-foreground/70 mb-6">
-                    {mode.description}
+              {/* Chess Board */}
+              <div className="flex flex-col gap-1 bg-card border border-border p-4 rounded-lg mb-4 w-fit">
+                <div className="flex gap-0">
+                  <div className="w-10" />
+                  {files.map((file) => (
+                    <div
+                      key={file}
+                      className="w-14 h-14 flex items-center justify-center text-xs font-semibold text-foreground/50"
+                    >
+                      {file}
+                    </div>
+                  ))}
+                </div>
+
+                {board.map((row, rowIndex) => (
+                  <div key={rowIndex} className="flex gap-0">
+                    <div className="w-10 h-14 flex items-center justify-center text-xs font-semibold text-foreground/50">
+                      {ranks[rowIndex]}
+                    </div>
+
+                    {row.map((square, colIndex) => {
+                      const isLight = (rowIndex + colIndex) % 2 === 0;
+                      const isSelected =
+                        selectedSquare?.[0] === rowIndex &&
+                        selectedSquare?.[1] === colIndex;
+                      const isValidMove = validMoves.some(
+                        (move) => move[0] === rowIndex && move[1] === colIndex,
+                      );
+                      const isHighlighted = selectedSquare && isValidMove;
+
+                      return (
+                        <button
+                          key={`${rowIndex}-${colIndex}`}
+                          onClick={() => handleSquareClick(rowIndex, colIndex)}
+                          className={`w-14 h-14 flex items-center justify-center text-4xl font-bold transition-all ${
+                            isLight
+                              ? "bg-amber-100 dark:bg-amber-900"
+                              : "bg-amber-700 dark:bg-amber-800"
+                          } ${isSelected ? "ring-4 ring-primary" : ""} ${
+                            isHighlighted
+                              ? "ring-4 ring-primary ring-inset opacity-80"
+                              : ""
+                          } ${!isSelected && isValidMove ? "cursor-pointer hover:opacity-70" : ""} hover:opacity-80`}
+                        >
+                          {isHighlighted && !square.piece && (
+                            <div className="w-3 h-3 bg-primary rounded-full" />
+                          )}
+                          {square.piece && (
+                            <span
+                              className={
+                                square.color === "white"
+                                  ? "text-black dark:text-white"
+                                  : "text-white dark:text-black"
+                              }
+                            >
+                              {PIECES[square.piece as keyof typeof PIECES]}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+
+              {/* Player Info - White */}
+              <div className="bg-card border border-border rounded-lg p-4 mt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-sm">You (White)</h3>
+                    <p className="text-xs text-foreground/70">Rating: 1850</p>
+                  </div>
+                  <div className="text-2xl font-bold text-primary">10:00</div>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Game Info Section */}
+          <div className="lg:col-span-1 space-y-4">
+            <Card className="p-6">
+              <h3 className="font-bold text-lg mb-4">Game Status</h3>
+              <div className="space-y-4">
+                <div className="p-3 rounded-lg bg-card/50 border border-border">
+                  <p className="text-sm text-foreground/70 mb-1">
+                    Current Turn
                   </p>
+                  <p className="text-lg font-bold text-primary">{gameStatus}</p>
+                </div>
 
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between bg-card/50 rounded p-3">
-                      <span className="text-xs text-foreground/60">
-                        Online Now
-                      </span>
-                      <span className="font-bold text-sm">
-                        {mode.players.toLocaleString()}
-                      </span>
+                <div className="p-3 rounded-lg bg-card/50 border border-border">
+                  <p className="text-sm text-foreground/70 mb-1">Total Moves</p>
+                  <p className="text-lg font-bold">{moveHistory.length}</p>
+                </div>
+
+                <div className="pt-4 border-t border-border">
+                  <Button
+                    onClick={resetBoard}
+                    className="w-full bg-primary hover:bg-primary/90 mb-2"
+                  >
+                    New Game
+                  </Button>
+                  <Button variant="outline" className="w-full bg-transparent">
+                    Resign
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            {/* Move History */}
+            <Card className="p-6">
+              <h3 className="font-bold text-lg mb-4">Move History</h3>
+              <div className="space-y-1 text-sm max-h-64 overflow-y-auto">
+                {moveHistory.length === 0 ? (
+                  <p className="text-foreground/50 text-xs">No moves yet</p>
+                ) : (
+                  moveHistory.map((move, idx) => (
+                    <div
+                      key={idx}
+                      className="py-2 px-3 rounded bg-card/50 border border-border text-xs"
+                    >
+                      <span className="text-foreground/70">
+                        Move {idx + 1}:
+                      </span>{" "}
+                      <span className="font-mono font-bold">{move}</span>
                     </div>
-
-                    <Link href="/play/board">
-                      <Button className="w-full bg-primary hover:bg-primary/90 group-hover:shadow-md transition-all">
-                        Play {mode.name}
-                      </Button>
-                    </Link>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </Tabs>
-
-          {/* Info Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-16">
-            <Card className="p-6 bg-card/50 border-primary/20">
-              <h3 className="text-lg font-bold mb-3">Tips for New Players</h3>
-              <ul className="space-y-2 text-sm text-foreground/70">
-                <li className="flex gap-2">
-                  <span>✓</span>
-                  <span>
-                    Start with Blitz or Rapid for better thinking time
-                  </span>
-                </li>
-                <li className="flex gap-2">
-                  <span>✓</span>
-                  <span>Play against different rating levels to improve</span>
-                </li>
-                <li className="flex gap-2">
-                  <span>✓</span>
-                  <span>Review your games for valuable learning</span>
-                </li>
-                <li className="flex gap-2">
-                  <span>✓</span>
-                  <span>Use the puzzle section to sharpen tactics</span>
-                </li>
-              </ul>
+                  ))
+                )}
+              </div>
             </Card>
-
-            <Card className="p-6 bg-card/50 border-primary/20">
-              <h3 className="text-lg font-bold mb-3">Popular Features</h3>
-              <ul className="space-y-2 text-sm text-foreground/70">
-                <li className="flex gap-2">
-                  <span>🎯</span>
-                  <span>Match with players at your skill level</span>
-                </li>
-                <li className="flex gap-2">
-                  <span>📊</span>
-                  <span>Real-time rating calculations</span>
-                </li>
-                <li className="flex gap-2">
-                  <span>🏆</span>
-                  <span>Compete in daily tournaments</span>
-                </li>
-                <li className="flex gap-2">
-                  <span>📈</span>
-                  <span>Track your progress with statistics</span>
-                </li>
-              </ul>
-            </Card>
-          </div>
-        </section>
-
-        {/* CTA Section */}
-        <section className="border-t border-border bg-card/30">
-          <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 text-center">
-            <h2 className="text-3xl font-bold mb-4">Ready to Play?</h2>
-            <p className="text-lg text-foreground/70 mb-8">
-              Join thousands of players playing right now. No account? Sign up
-              for free and start playing immediately.
-            </p>
-            <div className="flex gap-4 justify-center flex-wrap">
-              <Button size="lg" className="bg-primary hover:bg-primary/90">
-                Start Playing
-              </Button>
-              <Link href="/signup">
-                <Button size="lg" variant="outline">
-                  Create Account
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-border bg-card">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <h3 className="font-semibold mb-4">Game Modes</h3>
-              <ul className="space-y-2 text-sm text-foreground/70">
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Bullet
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Blitz
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Rapid
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Classical
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">Learn</h3>
-              <ul className="space-y-2 text-sm text-foreground/70">
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Lessons
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Puzzles
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Coach
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">Community</h3>
-              <ul className="space-y-2 text-sm text-foreground/70">
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Forum
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Tournaments
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Clubs
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">About</h3>
-              <ul className="space-y-2 text-sm text-foreground/70">
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    About Us
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Contact
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Privacy
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-border pt-8 text-sm text-foreground/70 text-center">
-            <p>&copy; 2024 ChessHub. All rights reserved.</p>
           </div>
         </div>
-      </footer>
+      </main>
     </div>
   );
 }
