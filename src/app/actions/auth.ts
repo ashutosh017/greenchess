@@ -12,18 +12,25 @@ export async function signin(prevState: any, formData: FormData): Promise<ApiRes
     try {
         const email = formData.get("email") as string
         const password = formData.get("password") as string
+        console.log("email: ", email)
+        console.log("password: ", password)
         // 1. Find user
         const user = await prisma.user.findUnique({
             where: { email }
         })
+        console.log("user: ", user)
 
+        if (!user)
+            console.log("user does not exist")
         if (!user || !user.password) {
+            console.log("password does not exist")
             return { success: false, error: "Invalid email or password" }
         }
 
         // 2. Verify Password
         const isPasswordValid = await bcrypt.compare(password, user.password)
         if (!isPasswordValid) {
+            console.log("password didnt match")
             return { success: false, error: "Invalid email or password" }
         }
 
@@ -71,8 +78,14 @@ export async function signup(prevState: any, formData: FormData): Promise<ApiRes
         console.log(country)
 
         // 1. Check if user already exists
-        const existingUser = await prisma.user.findUnique({
-            where: { email }
+        const existingUser = await prisma.user.findFirst({
+            where: {
+                OR: [{
+                    email
+                }, {
+                    username
+                }]
+            }
         })
 
         if (existingUser) {

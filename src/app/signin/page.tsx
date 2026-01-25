@@ -45,6 +45,7 @@ export default function SignIn() {
                 </label>
                 <Input
                   type="email"
+                  name="email"
                   placeholder="you@example.com"
                   disabled={isPending}
                 />
@@ -56,6 +57,7 @@ export default function SignIn() {
                 </label>
                 <Input
                   type="password"
+                  name="password"
                   placeholder="••••••••"
                   disabled={isPending}
                 />
