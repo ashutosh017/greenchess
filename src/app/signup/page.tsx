@@ -1,88 +1,22 @@
 "use client";
-
-import React, { useEffect } from "react";
-import { useState } from "react";
+import { useActionState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Header } from "@/components/header";
 import { signIn, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { FcGoogle } from "react-icons/fc";
 import { FaGithub } from "react-icons/fa";
+import { signup } from "../actions/auth";
+import { redirect } from "next/navigation";
 
 export default function SignUp() {
-  const [formData, setFormData] = useState({
-    username: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
-
-  const { data: session, status } = useSession();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (status === "authenticated") {
-      router.replace("/");
-    }
-  }, [status, router]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setSuccess(false);
-    setIsLoading(true);
-
-    if (
-      !formData.username ||
-      !formData.email ||
-      !formData.password ||
-      !formData.confirmPassword
-    ) {
-      setError("Please fill in all fields");
-      setIsLoading(false);
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
-      setIsLoading(false);
-      return;
-    }
-
-    if (formData.password.length < 8) {
-      setError("Password must be at least 8 characters");
-      setIsLoading(false);
-      return;
-    }
-
-    setTimeout(() => {
-      console.log("Sign up attempted with:", {
-        username: formData.username,
-        email: formData.email,
-      });
-      setSuccess(true);
-      setFormData({
-        username: "",
-        email: "",
-        password: "",
-        confirmPassword: "",
-      });
-    }, 1000);
-  };
+  const session = useSession();
+  if (session.status === "authenticated") redirect("/");
+  const [state, formAction, isPending] = useActionState(signup, null);
+  const error = state?.error;
+  const success = state?.success;
 
   return (
     <div className="min-h-screen bg-background">
@@ -109,7 +43,7 @@ export default function SignUp() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form action={formAction} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1.5">
                   Username
@@ -118,9 +52,7 @@ export default function SignUp() {
                   type="text"
                   name="username"
                   placeholder="your_username"
-                  value={formData.username}
-                  onChange={handleChange}
-                  disabled={isLoading || success}
+                  disabled={isPending || success}
                 />
               </div>
 
@@ -132,9 +64,7 @@ export default function SignUp() {
                   type="email"
                   name="email"
                   placeholder="you@example.com"
-                  value={formData.email}
-                  onChange={handleChange}
-                  disabled={isLoading || success}
+                  disabled={isPending}
                 />
               </div>
 
@@ -146,9 +76,7 @@ export default function SignUp() {
                   type="password"
                   name="password"
                   placeholder="••••••••"
-                  value={formData.password}
-                  onChange={handleChange}
-                  disabled={isLoading || success}
+                  disabled={isPending || success}
                 />
                 <p className="text-xs text-foreground/50 mt-1">
                   Minimum 8 characters
@@ -163,9 +91,7 @@ export default function SignUp() {
                   type="password"
                   name="confirmPassword"
                   placeholder="••••••••"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  disabled={isLoading || success}
+                  disabled={isPending || success}
                 />
               </div>
 
@@ -189,9 +115,9 @@ export default function SignUp() {
               <Button
                 type="submit"
                 className="w-full bg-primary hover:bg-primary/90"
-                disabled={isLoading || success}
+                disabled={isPending || success}
               >
-                {isLoading
+                {isPending
                   ? "Creating account..."
                   : success
                     ? "Account Created!"
@@ -209,7 +135,7 @@ export default function SignUp() {
               <Button
                 onClick={() => signIn("google")}
                 variant="outline"
-                disabled={isLoading}
+                disabled={isPending}
               >
                 <FcGoogle className="mr-2 h-4 w-4" />
                 Google
@@ -217,7 +143,7 @@ export default function SignUp() {
               <Button
                 onClick={() => signIn("github")}
                 variant="outline"
-                disabled={isLoading}
+                disabled={isPending}
               >
                 <FaGithub className="mr-2 h-4 w-4" />
                 GitHub

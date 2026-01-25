@@ -10,16 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Header } from "@/components/header";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { pusherclient as pusher } from "@/lib/pusher-client";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<
     "home" | "play" | "profile" | "analysis"
   >("home");
-
-  useEffect(() => {
-    // Any side effects or data fetching can be done her
-  }, []);
 
   return (
     <div className="min-h-screen text-foreground ">
