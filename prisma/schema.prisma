@@ -16,9 +16,9 @@ datasource db {
 model User {
   id            String    @id @default(uuid())
   name          String?
-  username      String   @unique
+  username      String?   @unique
   email         String    @unique
-  password      String
+  password      String?
   emailVerified DateTime?
   image         String?   // For Google profile picture
   rating        Int       @default(1200) // General ELO

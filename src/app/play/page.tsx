@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { pusherclient } from "@/lib/pusher-client";
+import { triggerMatchMaking } from "../actions/game";
+import { useAuth } from "@/hooks/useAuth";
+import { useSession } from "next-auth/react";
 
 interface BoardPosition {
   piece: string | null;
@@ -169,6 +172,8 @@ const isValidMove = (
 };
 
 export default function BoardPage() {
+  const auth = useAuth();
+  const session = useSession();
   const [board, setBoard] = useState<Board>(createInitialBoard());
   const [selectedSquare, setSelectedSquare] = useState<[number, number] | null>(
     null,
@@ -240,16 +245,31 @@ export default function BoardPage() {
     setGameStatus("White to move");
   };
   useEffect(() => {
+    if (!auth.user && session.status === "unauthenticated") {
+      console.log("no user returning...");
+      return;
+    }
+    console.log("user exists");
+    console.log("authid: ", auth.user?.id);
+    console.log("sessionid: ", session.data);
+    const userId = auth.user?.id || session.data?.user?.email;
+    if (!userId) {
+      console.log("No user ID found");
+      return;
+    }
+    triggerMatchMaking(userId);
     const channel = pusherclient.subscribe("game-channel");
-    channel.bind("person-join", (data: { msg: string; uesrEmail: string }) => {
-      console.log(data);
-      //   alert("user " + data.uesrEmail + " has joined the game");
+    channel.bind("match-found", (data: any) => {
+      console.log("match found: ", data);
+    });
+    channel.bind("player-waiting", (data: any) => {
+      console.log("player waiting: ", data);
     });
     return () => {
       pusherclient.unsubscribe("game-channel");
-      channel.unbind("person-joine");
+      channel.unbind_all();
     };
-  }, []);
+  }, [auth]);
   return (
     <div className="min-h-screen bg-background">
       <Header />

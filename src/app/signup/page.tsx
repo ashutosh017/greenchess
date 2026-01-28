@@ -1,5 +1,5 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,12 +9,17 @@ import { signIn, useSession } from "next-auth/react";
 import { FcGoogle } from "react-icons/fc";
 import { FaGithub } from "react-icons/fa";
 import { signup } from "../actions/auth";
-import { redirect } from "next/navigation";
+import { redirect, useRouter } from "next/navigation";
 
 export default function SignUp() {
   const session = useSession();
-  if (session.status === "authenticated") redirect("/");
   const [state, formAction, isPending] = useActionState(signup, null);
+  const router = useRouter();
+  useEffect(() => {
+    if (session.status === "authenticated") {
+      router.push("/"); // or router.refresh() if needed
+    }
+  }, [session.status, router]);
   const error = state?.error;
   const success = state?.success;
 

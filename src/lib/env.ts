@@ -13,4 +13,7 @@ export const env = {
 
     NEXT_PUBLIC_PUSHER_KEY: process.env.NEXT_PUBLIC_PUSHER_KEY!,
     NEXT_PUBLIC_PUSHER_CLUSTER: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+
+    REDIS_PASSWORD: process.env.REDIS_PASSWORD!,
+    REDIS_HOST: process.env.REDIS_HOST!
 };

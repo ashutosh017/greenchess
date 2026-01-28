@@ -6,18 +6,22 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Header } from "@/components/header";
 import { signIn, useSession } from "next-auth/react";
-import { redirect } from "next/navigation";
+import { redirect, useRouter } from "next/navigation";
 import { FcGoogle } from "react-icons/fc";
 import { FaGithub } from "react-icons/fa";
-import { signin } from "../actions/auth";
+import { signin, signup } from "../actions/auth";
 import { auth } from "@/lib/auth";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 
 export default function SignIn() {
   const session = useSession();
-  if (session.status === "authenticated") redirect("/");
-
   const [state, formAction, isPending] = useActionState(signin, null);
+  const router = useRouter();
+  useEffect(() => {
+    if (session.status === "authenticated") {
+      router.push("/"); // or router.refresh() if needed
+    }
+  }, [session.status, router]);
 
   return (
     <div className="min-h-screen bg-background">
