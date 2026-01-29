@@ -10,9 +10,9 @@ import prisma from "./prisma"
 export const { handlers, signIn, signOut, auth } = NextAuth({
     adapter: PrismaAdapter(prisma),
 
-    // session: {
-    //     strategy: "jwt", // recommended for App Router
-    // },
+    session: {
+        strategy: "jwt", // recommended for App Router
+    },
 
     providers: [
         Google,
@@ -58,19 +58,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // }),
     ],
 
-    // callbacks: {
-    //     async jwt({ token, user }) {
-    //         if (user) {
-    //             token.id = user.id
-    //         }
-    //         return token
-    //     },
-
-    //     async session({ session, token }) {
-    //         if (session.user) {
-    //             session.user.id = token.id as string
-    //         }
-    //         return session
-    //     },
-    // },
+    callbacks: {
+        // This callback is called when a JWT is created (on sign in) or updated
+        async jwt({ token, user, account }) {
+            if (user) {
+                token.id = user.id; // Add the user id to the token
+            }
+            // If you need an access token from an OAuth provider, you can add it here too
+            // if (account) { token.accessToken = account.access_token; }
+            return token;
+        },
+        // This callback is called whenever a session is checked
+        async session({ session, token }) {
+            if (session.user) {
+                session.user.id = token.id as string; // Add the id from the token to the session
+            }
+            return session;
+        },
+    },
 })

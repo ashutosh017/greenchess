@@ -1,29 +1,41 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 
 const PIECES = {
-  'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
-  'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟'
+  K: "♔",
+  Q: "♕",
+  R: "♖",
+  B: "♗",
+  N: "♘",
+  P: "♙",
+  k: "♚",
+  q: "♛",
+  r: "♜",
+  b: "♝",
+  n: "♞",
+  p: "♟",
 };
 
 const INITIAL_BOARD = [
-  ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
-  ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
+  ["r", "n", "b", "q", "k", "b", "n", "r"],
+  ["p", "p", "p", "p", "p", "p", "p", "p"],
   [null, null, null, null, null, null, null, null],
   [null, null, null, null, null, null, null, null],
   [null, null, null, null, null, null, null, null],
   [null, null, null, null, null, null, null, null],
-  ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
-  ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'],
+  ["P", "P", "P", "P", "P", "P", "P", "P"],
+  ["R", "N", "B", "Q", "K", "B", "N", "R"],
 ];
 
 export function ChessBoard() {
   const [board] = useState(INITIAL_BOARD);
-  const [selectedSquare, setSelectedSquare] = useState<[number, number] | null>(null);
+  const [selectedSquare, setSelectedSquare] = useState<[number, number] | null>(
+    null,
+  );
 
-  const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-  const ranks = ['8', '7', '6', '5', '4', '3', '2', '1'];
+  const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
+  const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
 
   return (
     <div className="flex flex-col gap-4">
@@ -34,7 +46,10 @@ export function ChessBoard() {
           <div className="flex gap-0">
             <div className="w-10" />
             {files.map((file) => (
-              <div key={file} className="w-14 h-14 flex items-center justify-center text-xs font-semibold text-muted-foreground">
+              <div
+                key={file}
+                className="w-14 h-14 flex items-center justify-center text-xs font-semibold text-muted-foreground"
+              >
                 {file}
               </div>
             ))}
@@ -51,17 +66,19 @@ export function ChessBoard() {
               {/* Squares */}
               {row.map((piece, colIndex) => {
                 const isLightSquare = (rowIndex + colIndex) % 2 === 0;
-                const isSelected = selectedSquare?.[0] === rowIndex && selectedSquare?.[1] === colIndex;
+                const isSelected =
+                  selectedSquare?.[0] === rowIndex &&
+                  selectedSquare?.[1] === colIndex;
 
                 return (
                   <button
                     key={`${rowIndex}-${colIndex}`}
                     onClick={() => setSelectedSquare([rowIndex, colIndex])}
                     className={`w-14 h-14 flex items-center justify-center text-4xl font-bold transition-colors ${
-                      isLightSquare ? 'bg-amber-100' : 'bg-amber-700'
-                    } ${isSelected ? 'ring-2 ring-primary' : ''} hover:opacity-80`}
+                      isLightSquare ? "bg-amber-100" : "bg-amber-700"
+                    } ${isSelected ? "ring-2 ring-primary" : ""} hover:opacity-80`}
                   >
-                    {piece ? PIECES[piece as keyof typeof PIECES] : ''}
+                    {piece ? PIECES[piece as keyof typeof PIECES] : ""}
                   </button>
                 );
               })}
