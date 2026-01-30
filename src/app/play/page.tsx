@@ -10,9 +10,7 @@ import { handleMove, triggerMatchMaking } from "../actions/game";
 import { useAuth } from "@/hooks/useAuth";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
-import FramerMatchmaking from "@/components/framer-matchmaking";
 import VersusMatchmaking from "@/components/versus-matchmaking";
-import MatchmakingOverlay from "@/components/matchmaking-overlay";
 import { useRouter } from "next/navigation";
 
 interface BoardPosition {
@@ -21,6 +19,20 @@ interface BoardPosition {
 }
 
 type Board = BoardPosition[][];
+// const PIECES = {
+//   wk: "./wk.png",
+//   wq: "./wq.png",
+//   wr: "./wr.png",
+//   wb: "./wb.png",
+//   wn: "./wn.png",
+//   wp: "./wp.png",
+//   bk: "./bk.png",
+//   bq: "./bq.png",
+//   br: "./br.png",
+//   bb: "./bb.png",
+//   bn: "./bn.png",
+//   bp: "./bp.png",
+// };
 
 const PIECES = {
   K: "./wk.png",
@@ -200,74 +212,63 @@ export default function BoardPage() {
   const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
   const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
 
-  // Helper to convert indices [row, col] to "a8", "e2", etc.
   const toChessNotation = (row: number, col: number) => {
     const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
-    const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"]; // Rank 8 is row 0
+    const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
     return `${files[col]}${ranks[row]}`;
   };
-
-  // Inside your component...
+  const myColor =
+    userId === playerOnWhite
+      ? "white"
+      : userId === playerOnBlack
+        ? "black"
+        : null;
   const handleSquareClick = async (row: number, col: number) => {
     const square: [number, number] = [row, col];
+    if (!myColor || currentPlayer !== myColor) {
+      return;
+    }
 
-    // --- CASE 1: ATTEMPTING TO MOVE ---
     if (validMoves.some((move) => move[0] === row && move[1] === col)) {
       if (selectedSquare) {
-        // 1. Perform Local Update (Optimistic UI)
-        // Keeps the game feeling snappy while server processes
         makeMove(selectedSquare, square);
-
-        // 2. Clear selection immediately
         setSelectedSquare(null);
         setValidMoves([]);
-
-        // 3. Prepare data for Server
         const fromNotation = toChessNotation(
           selectedSquare[0],
           selectedSquare[1],
         );
         const toNotation = toChessNotation(row, col);
-
-        // Check if this is a pawn promotion (Pawn reaching last rank)
         const isPawn =
           selectedSquare &&
           board[selectedSquare[0]][selectedSquare[1]].piece
             ?.toLowerCase()
             .includes("p");
         const isPromotion = isPawn && (row === 0 || row === 7);
-
-        // 4. Call Server Action
         try {
           await handleMove(
-            roomId || "", // You must have this from props/context
+            roomId || "",
             {
               from: fromNotation,
               to: toNotation,
-              promotion: isPromotion ? "q" : undefined, // Auto-promote to Queen for simplicity
+              promotion: isPromotion ? "q" : undefined,
             },
-            userId || "", // You must have this from props/session
+            userId || "",
           );
         } catch (error) {
           console.error("Move failed on server:", error);
-          // Optional: Revert the board state here if the server request fails
-          // fetchGameState();
         }
       }
       return;
     }
-
-    // --- CASE 2: SELECTING A PIECE ---
     const piece = board[row][col];
-
-    // Only allow selection if it's the user's turn (optional, but good UX)
-    // const isMyTurn = currentTurn === myColor;
-
-    if (piece.piece && piece.color === currentPlayer) {
+    if (
+      piece.piece &&
+      piece.color === currentPlayer &&
+      piece.color === myColor
+    ) {
       setSelectedSquare(square);
       const moves: [number, number][] = [];
-
-      // Calculate valid moves locally for the UI highlights
       for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
           if (isValidMove(board, square, [r, c])) {
@@ -277,61 +278,46 @@ export default function BoardPage() {
       }
       setValidMoves(moves);
     } else {
-      // Deselect if clicking empty square or enemy piece (without a valid move)
       setSelectedSquare(null);
       setValidMoves([]);
     }
   };
-  // Helper: Convert FEN string (e.g. "rnbqk...") to your Board array format
   const fenToBoard = (fen: string): Board => {
-    const [position] = fen.split(" "); // Get just the piece placement part
+    const [position] = fen.split(" ");
     const rows = position.split("/");
 
     return rows.map((row) => {
       const newRow: BoardPosition[] = [];
+
       for (const char of row) {
         if (!isNaN(Number(char))) {
-          // It's a number (empty squares), add nulls
-          for (let i = 0; i < Number(char); i++) {
+          const emptyCount = Number(char);
+          for (let i = 0; i < emptyCount; i++) {
             newRow.push({ piece: null, color: null });
           }
         } else {
-          // It's a piece letter
           const isWhite = char === char.toUpperCase();
-          const pieceType = char.toLowerCase(); // 'p', 'r', 'n', etc.
-          // Map FEN char to your piece code (e.g., 'P' -> 'wP', 'r' -> 'bR')
-          const pieceCode = (isWhite ? "w" : "b") + pieceType.toUpperCase();
-
+          const pieceType = char.toLowerCase();
+          // const pieceCode = (isWhite ? "w" : "b") + pieceType.toUpperCase();
+          const pieceCode = isWhite ? pieceType.toUpperCase() : pieceType;
           newRow.push({
-            piece: pieceCode, // Matches your PIECES keys like 'wP', 'bK'
-            color: isWhite ? "white" : ("black" as const),
+            piece: pieceCode,
+            color: isWhite ? "white" : "black",
           });
         }
       }
       return newRow;
     });
   };
-
-  // Inside your component...
   useEffect(() => {
     if (!roomId) return;
-
-    // 1. Subscribe to the specific room channel
     const channel = pusherClient.subscribe(`room-${roomId}`);
-
-    // 2. Listen for 'game-update' events from the server
     channel.bind("game-update", (data: any) => {
       const { fen, turn, lastMove, status, winner } = data;
-
-      // A. Update the board immediately with server truth
       const newBoard = fenToBoard(fen);
       setBoard(newBoard);
-
-      // B. Update turn state ('w' -> 'white', 'b' -> 'black')
       const nextPlayer = turn === "w" ? "white" : "black";
       setCurrentPlayer(nextPlayer);
-
-      // C. Update Status Text
       if (status === "finished") {
         setGameStatus(
           `Game Over! ${winner === "draw" ? "Draw" : winner + " wins"}`,
@@ -339,35 +325,22 @@ export default function BoardPage() {
       } else {
         setGameStatus(`${nextPlayer === "white" ? "White" : "Black"} to move`);
       }
-
-      // D. Update Move History (Optional: Add notation if server sends it, or minimal update)
-      if (lastMove) {
-        // You might want to format this better or rely on server to send full PGN later
+      if (lastMove)
         setMoveHistory((prev) => [...prev, `${lastMove.from}-${lastMove.to}`]);
-      }
-
-      // E. Clear selection state so no artifacts remain
       setSelectedSquare(null);
       setValidMoves([]);
     });
-
-    // 3. Cleanup on unmount
-    return () => {
-      pusherClient.unsubscribe(`room-${roomId}`);
-    };
+    return () => pusherClient.unsubscribe(`room-${roomId}`);
   }, [roomId]);
   const makeMove = (from: [number, number], to: [number, number]) => {
     const newBoard = board.map((row) => [...row]);
     const piece = newBoard[from[0]][from[1]];
     const target = newBoard[to[0]][to[1]];
-
     newBoard[to[0]][to[1]] = piece;
     newBoard[from[0]][from[1]] = { piece: null, color: null };
-
     const fromSquare = files[from[1]] + ranks[from[0]];
     const toSquare = files[to[1]] + ranks[to[0]];
     const moveNotation = `${piece.piece}${toSquare}${target.piece ? "x" : ""}`;
-
     setBoard(newBoard);
     setMoveHistory([...moveHistory, moveNotation]);
     setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
@@ -375,7 +348,6 @@ export default function BoardPage() {
     setSelectedSquare(null);
     setValidMoves([]);
   };
-
   const resetBoard = () => {
     setBoard(createInitialBoard());
     setSelectedSquare(null);
@@ -383,46 +355,39 @@ export default function BoardPage() {
     setCurrentPlayer("white");
     setMoveHistory([]);
     setGameStatus("White to move");
-
-    if (!userId) {
-      return;
-    }
+    if (!userId) return;
     triggerMatchMaking(userId);
     setMatchMaking(true);
   };
   useEffect(() => {
-    if (!auth.user && session.status === "unauthenticated") {
-      return;
-    }
+    if (!auth.user && session.status === "unauthenticated") return;
     const userId = auth.user?.id || session.data?.user?.id;
-    if (!userId) {
-      return;
-    }
+    if (!userId) return;
     setUserId(userId);
   }, [auth, session]);
   useEffect(() => {
     const channel = pusherClient.subscribe("game-channel");
+    // ... inside useEffect
     channel.bind("match-found", (data: any) => {
       setMatchMaking(false);
       setPlayerOnWhite(data.white);
-      setPlayerOnWhite(data.black);
+      setPlayerOnBlack(data.black); // <--- CHANGED THIS (was setPlayerOnWhite)
       setRoomId(data.roomId);
       if (data.white === userId) setOpponentId(data.black);
       else setOpponentId(data.white);
-      console.log("match found: ", data);
-    });
-    channel.bind("player-waiting", (data: any) => {
-      console.log("player waiting: ", data);
     });
     return () => {
       pusherClient.unsubscribe("game-channel");
       channel.unbind_all();
     };
   }, []);
+  const isFlipped = myColor === "black";
+  const renderRows = isFlipped ? [...board].reverse() : board;
+  const renderRanks = isFlipped ? [...ranks].reverse() : ranks;
+  const renderFiles = isFlipped ? [...files].reverse() : files;
   return (
     <div className="min-h-screen bg-background">
       <Header />
-
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-8 flex items-center justify-between">
           <h1 className="text-4xl font-bold">Play Chess</h1>
@@ -430,12 +395,9 @@ export default function BoardPage() {
             <Button variant="outline">Back to Play</Button>
           </Link>
         </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Board Section */}
           <div className="lg:col-span-3">
             <Card className="p-6">
-              {/* Player Info - Black */}
               <div className="bg-card border border-border rounded-lg p-4 mb-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -451,7 +413,7 @@ export default function BoardPage() {
               <div className="flex flex-col gap-0 w-fit select-none">
                 {/* File Labels (Top) */}
                 <div className="flex gap-0 pl-10">
-                  {files.map((file) => (
+                  {renderFiles.map((file) => (
                     <div
                       key={file}
                       className="w-14 h-6 flex items-end justify-center text-xs font-semibold text-foreground/60 pb-1"
@@ -476,69 +438,94 @@ export default function BoardPage() {
 
                   {/* The Board Grid */}
                   <div className="flex flex-col shadow-lg">
-                    {board.map((row, rowIndex) => (
-                      <div key={rowIndex} className="flex gap-0">
-                        {row.map((square, colIndex) => {
-                          const isLight = (rowIndex + colIndex) % 2 === 0;
-                          const isSelected =
-                            selectedSquare?.[0] === rowIndex &&
-                            selectedSquare?.[1] === colIndex;
-                          const isValidMove = validMoves.some(
-                            (move) =>
-                              move[0] === rowIndex && move[1] === colIndex,
-                          );
-                          const isHighlighted = selectedSquare && isValidMove;
+                    {renderRows.map((row, rowIndex) => {
+                      console.log("render rows: ", renderRows);
+                      // 1. Calculate the REAL array index based on flip state
+                      // If flipped, visual row 0 is actually logical row 7
+                      const actualRow = isFlipped ? 7 - rowIndex : rowIndex;
 
-                          // Chess.com Colors
-                          const baseColorClass = isLight
-                            ? "bg-[#ebecd0]"
-                            : "bg-[#779556]";
-                          // A specific yellow tint for selected squares that overrides base
-                          const selectedClass = isSelected
-                            ? "!bg-[#f5f682]"
-                            : "";
+                      return (
+                        <div key={rowIndex} className="flex gap-0">
+                          {row.map((square, colIndex) => {
+                            // 1. Calculate REAL column index
+                            const actualCol = isFlipped
+                              ? 7 - colIndex
+                              : colIndex;
 
-                          return (
-                            <button
-                              key={`${rowIndex}-${colIndex}`}
-                              onClick={() =>
-                                handleSquareClick(rowIndex, colIndex)
-                              }
-                              className={`w-18 h-18 flex items-center justify-center relative outline-none ${baseColorClass} ${selectedClass} ${
-                                !isSelected && isValidMove
-                                  ? "cursor-pointer hover:brightness-105"
-                                  : ""
-                              }`}
-                            >
-                              {/* Valid Move Indicator (Dot for empty squares) */}
-                              {isHighlighted && !square.piece && (
-                                <div className="absolute w-5 h-5 bg-black/15 rounded-full" />
-                              )}
+                            // 2. Use ACTUAL coordinates for logic checks
+                            const isSelected =
+                              selectedSquare?.[0] === actualRow &&
+                              selectedSquare?.[1] === actualCol;
 
-                              {/* Capture Indicator (Optional ring for captures - add if desired) */}
-                              {/* {isHighlighted && square.piece && (
-                   <div className="absolute w-12 h-12 border-4 border-black/15 rounded-full" />
-                )} */}
+                            const isValidMove = validMoves.some(
+                              (move) =>
+                                move[0] === actualRow && move[1] === actualCol,
+                            );
 
-                              {/* The Piece */}
-                              {square.piece && (
-                                <div
-                                  className={`relative w-[50px] h-[50px] ${isHighlighted ? "z-10" : ""}`}
-                                >
-                                  <Image
-                                    src={`${PIECES[square.piece as keyof typeof PIECES]}`}
-                                    fill
-                                    sizes="50px"
-                                    className="object-contain"
-                                    alt={`${square.color} ${square.piece}`}
-                                  />
-                                </div>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ))}
+                            // 3. Visual coloring (Parity works the same for visual or logical, usually)
+                            const isLight = (actualRow + actualCol) % 2 === 0;
+
+                            const isHighlighted = selectedSquare && isValidMove;
+
+                            // Chess.com Colors
+                            const baseColorClass = isLight
+                              ? "bg-[#ebecd0]"
+                              : "bg-[#779556]";
+
+                            const selectedClass = isSelected
+                              ? "!bg-[#f5f682]"
+                              : "";
+
+                            return (
+                              <button
+                                // Use actual coords for unique key to prevent React render bugs
+                                key={`${actualRow}-${actualCol}`}
+                                // 4. CRITICAL: Pass ACTUAL coordinates to the handler
+                                onClick={() =>
+                                  handleSquareClick(actualRow, actualCol)
+                                }
+                                className={`w-18 h-18 flex items-center justify-center relative outline-none ${baseColorClass} ${selectedClass} ${
+                                  !isSelected && isValidMove
+                                    ? "cursor-pointer hover:brightness-105"
+                                    : ""
+                                }`}
+                              >
+                                {/* Valid Move Indicator */}
+                                {isValidMove && !square.piece && (
+                                  <div className="absolute w-5 h-5 bg-black/15 rounded-full" />
+                                )}
+
+                                {/* The Piece */}
+                                {square.piece && (
+                                  <div
+                                    className={`relative w-[50px] h-[50px] ${
+                                      // If this piece is being captured (isHighlighted),
+                                      // keep it below the highlight dot? Or remove dot?
+                                      // Usually capture moves get a ring or corners,
+                                      // but for now z-10 ensures piece is above background.
+                                      isHighlighted ? "z-10" : ""
+                                    }`}
+                                  >
+                                    {/* Move indicator ON TOP of piece for captures (Standard Chess.com style uses corners, but this works) */}
+                                    {isValidMove && (
+                                      <div className="absolute inset-0 bg-transparent border-[6px] border-black/10 rounded-full z-20" />
+                                    )}
+
+                                    <Image
+                                      src={`${PIECES[square.piece as keyof typeof PIECES]}`}
+                                      fill
+                                      sizes="50px"
+                                      className="object-contain"
+                                      alt={`${square.color} ${square.piece}`}
+                                    />
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -617,8 +604,6 @@ export default function BoardPage() {
           userAvatarUrl={session.data?.user?.image || ""}
           userName={auth.user?.username || session.data?.user?.name || "user"}
         />
-        // <MatchmakingOverlay />
-        // <FramerMatchmaking />
       )}
     </div>
   );
