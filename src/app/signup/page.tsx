@@ -16,16 +16,16 @@ export default function SignUp() {
   const [state, formAction, isPending] = useActionState(signup, null);
   const router = useRouter();
   useEffect(() => {
-    if (session.status === "authenticated") {
+    if (session.status === "authenticated" || state?.success) {
       router.push("/"); // or router.refresh() if needed
     }
-  }, [session.status, router]);
+  }, [session.status]);
+
   const error = state?.error;
   const success = state?.success;
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
       <div className="flex items-center justify-center px-4 py-16 sm:py-24">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
