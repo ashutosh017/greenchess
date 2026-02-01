@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { pusherClient } from "@/lib/pusher-client";
-import { handleMove, triggerMatchMaking } from "../actions/game";
+import { handleMove, resignGame, triggerMatchMaking } from "../actions/game";
 import { useAuth } from "@/hooks/useAuth";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
@@ -19,21 +19,6 @@ interface BoardPosition {
 }
 
 type Board = BoardPosition[][];
-// const PIECES = {
-//   wk: "./wk.png",
-//   wq: "./wq.png",
-//   wr: "./wr.png",
-//   wb: "./wb.png",
-//   wn: "./wn.png",
-//   wp: "./wp.png",
-//   bk: "./bk.png",
-//   bq: "./bq.png",
-//   br: "./br.png",
-//   bb: "./bb.png",
-//   bn: "./bn.png",
-//   bp: "./bp.png",
-// };
-
 const PIECES = {
   K: "./wk.png",
   Q: "./wq.png",
@@ -213,8 +198,6 @@ export default function BoardPage() {
   const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
 
   const toChessNotation = (row: number, col: number) => {
-    const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
-    const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
     return `${files[col]}${ranks[row]}`;
   };
   const myColor =
@@ -311,13 +294,18 @@ export default function BoardPage() {
   };
   useEffect(() => {
     if (!roomId) return;
+
     const channel = pusherClient.subscribe(`room-${roomId}`);
+
     channel.bind("game-update", (data: any) => {
-      const { fen, turn, lastMove, status, winner } = data;
+      const { fen, turn, san, status, winner } = data; // Receive 'san'
+
       const newBoard = fenToBoard(fen);
       setBoard(newBoard);
+
       const nextPlayer = turn === "w" ? "white" : "black";
       setCurrentPlayer(nextPlayer);
+
       if (status === "finished") {
         setGameStatus(
           `Game Over! ${winner === "draw" ? "Draw" : winner + " wins"}`,
@@ -325,24 +313,54 @@ export default function BoardPage() {
       } else {
         setGameStatus(`${nextPlayer === "white" ? "White" : "Black"} to move`);
       }
-      if (lastMove)
-        setMoveHistory((prev) => [...prev, `${lastMove.from}-${lastMove.to}`]);
-      setSelectedSquare(null);
+
+      // --- HISTORY UPDATE LOGIC ---
+      if (san) {
+        setMoveHistory((prev) => {
+          // Check if the last move we have is the same as the incoming one
+          // This prevents duplication if our optimistic UI already added it
+          const lastLocalMove = prev[prev.length - 1];
+          if (lastLocalMove === san) {
+            return prev;
+          }
+          return [...prev, san];
+        });
+      }
+
+      // We DON'T clear selectedSquare here usually, otherwise it flickers
+      // if you select a piece fast while an opponent moves.
+      // But clearing validMoves is safe.
       setValidMoves([]);
     });
+
     return () => pusherClient.unsubscribe(`room-${roomId}`);
   }, [roomId]);
   const makeMove = (from: [number, number], to: [number, number]) => {
     const newBoard = board.map((row) => [...row]);
     const piece = newBoard[from[0]][from[1]];
     const target = newBoard[to[0]][to[1]];
+
     newBoard[to[0]][to[1]] = piece;
     newBoard[from[0]][from[1]] = { piece: null, color: null };
-    const fromSquare = files[from[1]] + ranks[from[0]];
+
+    // --- NOTATION GENERATION ---
     const toSquare = files[to[1]] + ranks[to[0]];
-    const moveNotation = `${piece.piece}${toSquare}${target.piece ? "x" : ""}`;
+
+    // 1. Get raw piece char (e.g., 'wP' -> 'P', 'bN' -> 'N')
+    const rawPieceChar = piece.piece ? piece.piece.substring(1) : "";
+
+    // 2. Standard Notation rules:
+    // - Don't show 'P' for pawns
+    // - Show 'x' if capture
+    const isCapture = target.piece !== null;
+    const pieceChar =
+      rawPieceChar === "P" ? (isCapture ? files[from[1]] : "") : rawPieceChar;
+
+    // const moveNotation = `${pieceChar}${isCapture ? "x" : ""}${toSquare}`;
+    // ---------------------------
+
     setBoard(newBoard);
-    setMoveHistory([...moveHistory, moveNotation]);
+    // setMoveHistory([...moveHistory, moveNotation]); // Add clean notation
     setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
     setGameStatus(`${currentPlayer === "white" ? "Black" : "White"} to move`);
     setSelectedSquare(null);
@@ -361,9 +379,9 @@ export default function BoardPage() {
   };
   useEffect(() => {
     if (!auth.user && session.status === "unauthenticated") return;
-    const userId = auth.user?.id || session.data?.user?.id;
-    if (!userId) return;
-    setUserId(userId);
+    const userEmail = auth.user?.email || session.data?.user?.email;
+    if (!userEmail) return;
+    setUserId(userEmail);
   }, [auth, session]);
   useEffect(() => {
     const channel = pusherClient.subscribe("game-channel");
@@ -381,10 +399,24 @@ export default function BoardPage() {
       channel.unbind_all();
     };
   }, []);
+  const handleResign = async () => {
+    if (!roomId || !userId) return;
+
+    // Optional: Add a confirmation dialog
+    if (!confirm("Are you sure you want to resign?")) return;
+
+    try {
+      await resignGame(roomId, userId);
+      // No need to manually update state here;
+      // the Pusher 'game-update' listener will handle the "Game Over" UI.
+    } catch (error) {
+      console.error("Resign failed:", error);
+    }
+  };
   const isFlipped = myColor === "black";
   const renderRows = isFlipped ? [...board].reverse() : board;
   const renderRanks = isFlipped ? [...ranks].reverse() : ranks;
-  const renderFiles = isFlipped ? [...files].reverse() : files;
+  const renderFiles = files;
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -397,7 +429,8 @@ export default function BoardPage() {
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <div className="lg:col-span-3">
-            <Card className="p-6">
+            <Card className="lg:p-6 md:p-3 p-1">
+              {/* Player Info - Opponent */}
               <div className="bg-card border border-border rounded-lg p-4 mb-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -412,11 +445,11 @@ export default function BoardPage() {
               {/* Chess Board */}
               <div className="flex flex-col gap-0 w-fit select-none">
                 {/* File Labels (Top) */}
-                <div className="flex gap-0 pl-10">
+                <div className="flex gap-0 lg:pl-10 md:pl-5 pl-1">
                   {renderFiles.map((file) => (
                     <div
                       key={file}
-                      className="w-14 h-6 flex items-end justify-center text-xs font-semibold text-foreground/60 pb-1"
+                      className="lg:w-18 md:w-14 w-10 md:h-6 h-3 flex items-end justify-center text-xs font-semibold text-foreground/60 pb-1"
                     >
                       {file}
                     </div>
@@ -426,12 +459,12 @@ export default function BoardPage() {
                 <div className="flex">
                   {/* Rank Labels (Left side) */}
                   <div className="flex flex-col gap-0 pr-1">
-                    {board.map((_, rowIndex) => (
+                    {renderRanks.map((_, rowIndex) => (
                       <div
                         key={rowIndex}
-                        className="w-6 h-14 flex items-center justify-end text-xs font-semibold text-foreground/60 pr-1"
+                        className="md:w-6 w-3 lg:h-18 md:h-14 h-10 flex items-center justify-end text-xs font-semibold text-foreground/60 pr-1"
                       >
-                        {ranks[rowIndex]}
+                        {renderRanks[rowIndex]}
                       </div>
                     ))}
                   </div>
@@ -439,18 +472,20 @@ export default function BoardPage() {
                   {/* The Board Grid */}
                   <div className="flex flex-col shadow-lg">
                     {renderRows.map((row, rowIndex) => {
-                      console.log("render rows: ", renderRows);
+                      // console.log("render rows: ", renderRows);
                       // 1. Calculate the REAL array index based on flip state
                       // If flipped, visual row 0 is actually logical row 7
                       const actualRow = isFlipped ? 7 - rowIndex : rowIndex;
+                      // const actualRow = rowIndex;
 
                       return (
                         <div key={rowIndex} className="flex gap-0">
                           {row.map((square, colIndex) => {
                             // 1. Calculate REAL column index
-                            const actualCol = isFlipped
-                              ? 7 - colIndex
-                              : colIndex;
+                            // const actualCol = isFlipped
+                            //   ? 7 - colIndex
+                            //   : colIndex;
+                            const actualCol = colIndex;
 
                             // 2. Use ACTUAL coordinates for logic checks
                             const isSelected =
@@ -481,10 +516,15 @@ export default function BoardPage() {
                                 // Use actual coords for unique key to prevent React render bugs
                                 key={`${actualRow}-${actualCol}`}
                                 // 4. CRITICAL: Pass ACTUAL coordinates to the handler
-                                onClick={() =>
-                                  handleSquareClick(actualRow, actualCol)
-                                }
-                                className={`w-18 h-18 flex items-center justify-center relative outline-none ${baseColorClass} ${selectedClass} ${
+                                onClick={() => {
+                                  console.log(
+                                    "clicked: ",
+                                    actualRow,
+                                    actualCol,
+                                  );
+                                  handleSquareClick(actualRow, actualCol);
+                                }}
+                                className={`w-10 h-10 md:w-14 md:h-14 lg:w-18 lg:h-18 flex items-center justify-center relative outline-none ${baseColorClass} ${selectedClass} ${
                                   !isSelected && isValidMove
                                     ? "cursor-pointer hover:brightness-105"
                                     : ""
@@ -568,7 +608,12 @@ export default function BoardPage() {
                   >
                     New Game
                   </Button>
-                  <Button variant="outline" className="w-full bg-transparent">
+                  <Button
+                    variant="outline"
+                    className="w-full bg-transparent hover:bg-red-500/10 hover:text-red-500 hover:border-red-500 transition-colors"
+                    onClick={handleResign}
+                    disabled={gameStatus.includes("Game Over")} // Disable if game is already over
+                  >
                     Resign
                   </Button>
                 </div>
@@ -576,24 +621,62 @@ export default function BoardPage() {
             </Card>
 
             {/* Move History */}
-            <Card className="p-6">
-              <h3 className="font-bold text-lg mb-4">Move History</h3>
-              <div className="space-y-1 text-sm max-h-64 overflow-y-auto">
-                {moveHistory.length === 0 ? (
-                  <p className="text-foreground/50 text-xs">No moves yet</p>
-                ) : (
-                  moveHistory.map((move, idx) => (
-                    <div
-                      key={idx}
-                      className="py-2 px-3 rounded bg-card/50 border border-border text-xs"
-                    >
-                      <span className="text-foreground/70">
-                        Move {idx + 1}:
-                      </span>{" "}
-                      <span className="font-mono font-bold">{move}</span>
+            {/* Move History */}
+            <Card className="flex flex-col h-full max-h-[400px]">
+              <div className="p-3 border-b border-border bg-muted/20">
+                <h3 className="font-bold text-sm">Move History</h3>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-0">
+                {/* Table Header */}
+                <div className="grid grid-cols-[3rem_1fr_1fr] text-xs font-semibold text-muted-foreground bg-muted/50 py-1 px-2">
+                  <div className="pl-2">#</div>
+                  <div>White</div>
+                  <div>Black</div>
+                </div>
+
+                {/* Moves List */}
+                <div className="flex flex-col">
+                  {moveHistory.length === 0 ? (
+                    <div className="p-4 text-center text-muted-foreground text-xs italic">
+                      Game hasn't started
                     </div>
-                  ))
-                )}
+                  ) : (
+                    // We create an array of "pairs" based on history length
+                    Array.from({
+                      length: Math.ceil(moveHistory.length / 2),
+                    }).map((_, i) => {
+                      const whiteMove = moveHistory[i * 2];
+                      const blackMove = moveHistory[i * 2 + 1];
+
+                      return (
+                        <div
+                          key={i}
+                          className={`grid grid-cols-[3rem_1fr_1fr] text-sm py-1 px-2 border-b border-border/50 ${
+                            (i + 1) % 2 === 0 ? "bg-muted/10" : "" // Zebra striping
+                          }`}
+                        >
+                          {/* Move Number */}
+                          <div className="text-muted-foreground font-mono pl-2 bg-muted/20 mr-2 flex items-center justify-center text-xs">
+                            {i + 1}.
+                          </div>
+
+                          {/* White Move */}
+                          <div className="flex items-center px-2 font-medium cursor-pointer hover:bg-yellow-100 dark:hover:bg-yellow-900/30 rounded transition-colors">
+                            {whiteMove}
+                          </div>
+
+                          {/* Black Move (might be undefined if it's White's turn) */}
+                          <div className="flex items-center px-2 font-medium cursor-pointer hover:bg-yellow-100 dark:hover:bg-yellow-900/30 rounded transition-colors">
+                            {blackMove || ""}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                  {/* Anchor to auto-scroll to bottom */}
+                  <div id="history-end" />
+                </div>
               </div>
             </Card>
           </div>

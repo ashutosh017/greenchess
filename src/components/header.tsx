@@ -7,12 +7,13 @@ import { UserAvatar } from "./user/avatar";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import { useAuth } from "@/hooks/useAuth";
+import { memo } from "react";
 
-export function Header() {
+export const Header = memo(() => {
   const session = useSession();
   const auth = useAuth();
   console.log("auth in hader: ", auth);
-  console.log("session in header: ", session);
+  // console.log("session in header: ", session);
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-16 items-center justify-between px-6">
@@ -91,4 +92,4 @@ export function Header() {
       </div>
     </header>
   );
-}
+});

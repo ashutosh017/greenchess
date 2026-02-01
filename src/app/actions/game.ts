@@ -64,8 +64,6 @@ export async function triggerMatchMaking(userEmail: string) {
     }
 }
 
-
-
 export async function handleMove(
     roomId: string,
     move: { from: string; to: string; promotion?: string },
@@ -96,12 +94,12 @@ export async function handleMove(
 
         // 3. Validate move logic using Chess.js
         const chess = new Chess(gameState.fen);
+        let moveResult;
 
         try {
-            // .move() throws an error or returns null if invalid in some versions, 
-            // but standard chess.js returns the move object or null.
-            const result = chess.move(move);
-            if (!result) throw new Error("Invalid move");
+            // Perform the move. chess.js returns the move object (with SAN) or throws/returns null
+            moveResult = chess.move(move);
+            if (!moveResult) throw new Error("Invalid move");
         } catch (e) {
             return { success: false, error: "Illegal move attempted" };
         }
@@ -127,15 +125,16 @@ export async function handleMove(
             fen: nextFen,
             turn: nextTurn,
             status: nextStatus,
-            lastMove: JSON.stringify(move), // Optional: helps frontend animation
-            ...(winner && { winner }) // Only add winner if game is over
+            lastMove: JSON.stringify(move),
+            ...(winner && { winner })
         });
 
-        // 6. Broadcast to everyone in the room
+        // 6. Broadcast to everyone in the room (INCLUDING SAN)
         await pusherServer.trigger(`room-${roomId}`, 'game-update', {
             fen: nextFen,
             turn: nextTurn,
             lastMove: move,
+            san: moveResult.san, // <--- Added this field
             status: nextStatus,
             winner
         });
@@ -145,5 +144,50 @@ export async function handleMove(
     } catch (error) {
         console.error("Move error:", error);
         return { success: false, error: "Failed to process move" };
+    }
+}
+
+export async function resignGame(roomId: string, userId: string) {
+    const GAME_KEY = `game:${roomId}`;
+
+    try {
+        // 1. Fetch current game
+        const gameState = await redis.hGetAll(GAME_KEY);
+
+        if (!gameState || gameState.status === 'finished') {
+            return { success: false, error: "Game already finished or not found" };
+        }
+
+        // 2. Determine who is resigning and who wins
+        let winner = '';
+        if (gameState.white === userId) {
+            winner = 'black'; // White resigned, Black wins
+        } else if (gameState.black === userId) {
+            winner = 'white'; // Black resigned, White wins
+        } else {
+            return { success: false, error: "You are not in this game" };
+        }
+
+        // 3. Update Redis
+        await redis.hSet(GAME_KEY, {
+            status: 'finished',
+            winner: winner,
+            resignation: 'true' // Optional: marker to know how game ended
+        });
+
+        // 4. Broadcast Game Over
+        await pusherServer.trigger(`room-${roomId}`, 'game-update', {
+            fen: gameState.fen, // Board doesn't change
+            turn: gameState.turn,
+            status: 'finished',
+            winner: winner,
+            msg: `${winner === 'white' ? 'Black' : 'White'} resigned.`
+        });
+
+        return { success: true };
+
+    } catch (error) {
+        console.error("Resign error:", error);
+        return { success: false, error: "Failed to resign" };
     }
 }
