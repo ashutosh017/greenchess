@@ -2,7 +2,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { auth } from "@/lib/auth";
 import { UserAvatar } from "./user/avatar";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
@@ -12,84 +11,67 @@ import { memo } from "react";
 export const Header = memo(() => {
   const session = useSession();
   const auth = useAuth();
-  console.log("auth in hader: ", auth);
-  // console.log("session in header: ", session);
-  return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="flex h-16 items-center justify-between px-6">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Image
-              src="/wn.png" // Use "/" to reference the public folder
-              alt="GreenChess Logo"
-              width={24} // Required: 24px matches tailwind 'w-6'
-              height={24} // Required: 24px matches tailwind 'h-6'
-              // className="scale-x-[-1]"
-            />
-          </div>
-          <span className="text-lg font-bold tracking-tight">GreenChess</span>
-        </Link>
 
-        {/* Navigation */}
-        <nav className="hidden md:flex items-center gap-8">
+  return (
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between">
+          {/* Logo Section */}
           <Link
             href="/"
-            className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors"
+            className="group flex items-center gap-3 transition-opacity hover:opacity-90"
           >
-            Play
+            <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/20 transition-all group-hover:shadow-primary/40 group-hover:scale-105">
+              <Image
+                src="/wn.png"
+                alt="GreenChess Logo"
+                width={26}
+                height={26}
+                className="object-contain drop-shadow-sm"
+              />
+            </div>
+            <span className="text-xl font-bold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
+              GreenChess
+            </span>
           </Link>
-          <Link
-            href="/analyze"
-            className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors"
-          >
-            Analyze
-          </Link>
-          <Link
-            href="/learn"
-            className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors"
-          >
-            Learn
-          </Link>
-          <Link
-            href="/community"
-            className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors"
-          >
-            Community
-          </Link>
-        </nav>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          {session.data ? (
-            <UserAvatar session={session.data} />
-          ) : auth.user ? (
-            <UserAvatar session={{ user: auth.user }} />
-          ) : (
-            <>
-              <Link href="/signin">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs bg-transparent"
-                >
-                  Sign In
-                </Button>
-              </Link>
+          {/* Right Actions */}
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
+            <div className="h-6 w-px bg-border/60 mx-1 hidden sm:block" />{" "}
+            {/* Vertical Divider */}
+            {session.data ? (
+              <UserAvatar session={session.data} />
+            ) : auth.user ? (
+              <UserAvatar session={{ user: auth.user }} />
+            ) : (
+              <div className="flex items-center gap-2">
+                <Link href="/signin">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    Sign In
+                  </Button>
+                </Link>
 
-              <Link href="/signup">
-                <Button
-                  size="sm"
-                  className="text-xs bg-primary hover:bg-primary/90"
-                >
-                  Sign Up
-                </Button>
-              </Link>
-            </>
-          )}
+                <Link href="/signup">
+                  <Button
+                    size="sm"
+                    className="rounded-full px-5 text-sm font-bold shadow-md hover:shadow-lg transition-all"
+                  >
+                    Sign Up
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>
   );
 });
+
+// Needed for proper display name in React DevTools since we used memo
+Header.displayName = "Header";

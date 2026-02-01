@@ -419,12 +419,11 @@ export default function BoardPage() {
   const renderFiles = files;
   return (
     <div className="min-h-screen bg-background">
-      <Header />
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-8 flex items-center justify-between">
           <h1 className="text-4xl font-bold">Play Chess</h1>
-          <Link href="/play">
-            <Button variant="outline">Back to Play</Button>
+          <Link href="/">
+            <Button variant="outline">Back to Home</Button>
           </Link>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
