@@ -1,7 +1,5 @@
 "use client";
-
 import { useState, useEffect } from "react";
-import { Header } from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import Link from "next/link";
@@ -208,11 +206,13 @@ export default function BoardPage() {
         : null;
   const handleSquareClick = async (row: number, col: number) => {
     const square: [number, number] = [row, col];
-    if (!myColor || currentPlayer !== myColor) {
+    if (opponentId && currentPlayer !== myColor) {
+      console.log("returning");
       return;
     }
-
+    console.log("valid moves: ", validMoves);
     if (validMoves.some((move) => move[0] === row && move[1] === col)) {
+      console.log("selected squre: ", selectedSquare);
       if (selectedSquare) {
         makeMove(selectedSquare, square);
         setSelectedSquare(null);
@@ -245,10 +245,15 @@ export default function BoardPage() {
       return;
     }
     const piece = board[row][col];
+    console.log("piece: ", piece.piece);
+    console.log("pice color ", piece.color);
+    console.log("current plyaer:  ", currentPlayer);
+    console.log("my color: ", myColor);
     if (
-      piece.piece &&
-      piece.color === currentPlayer &&
-      piece.color === myColor
+      (piece.piece &&
+        piece.color === currentPlayer &&
+        piece.color === myColor) ||
+      !opponentId
     ) {
       setSelectedSquare(square);
       const moves: [number, number][] = [];
@@ -261,6 +266,7 @@ export default function BoardPage() {
       }
       setValidMoves(moves);
     } else {
+      console.log("got into else");
       setSelectedSquare(null);
       setValidMoves([]);
     }
@@ -384,21 +390,37 @@ export default function BoardPage() {
     setUserId(userEmail);
   }, [auth, session]);
   useEffect(() => {
+    // 1. Guard clause: Don't subscribe until we know who the user is
+    if (!userId) return;
+
     const channel = pusherClient.subscribe("game-channel");
-    // ... inside useEffect
+
     channel.bind("match-found", (data: any) => {
-      setMatchMaking(false);
+      // Now 'userId' inside here will be the current, correct value
+      console.log("Current userId:", userId);
+
+      // Delay hiding the matchmaking screen so users see the "Match Found" animation
+      setTimeout(() => {
+        setMatchMaking(false);
+      }, 3000); // Reduced to 3s (8s is very long for a UI delay)
+
       setPlayerOnWhite(data.white);
-      setPlayerOnBlack(data.black); // <--- CHANGED THIS (was setPlayerOnWhite)
+      setPlayerOnBlack(data.black);
       setRoomId(data.roomId);
-      if (data.white === userId) setOpponentId(data.black);
-      else setOpponentId(data.white);
+
+      // This logic will now work correctly
+      if (data.white === userId) {
+        setOpponentId(data.black);
+      } else {
+        setOpponentId(data.white);
+      }
     });
+
     return () => {
       pusherClient.unsubscribe("game-channel");
-      channel.unbind_all();
+      channel.unbind("match-found"); // Unbind specific event is cleaner
     };
-  }, []);
+  }, [userId]); // <--- CRITICAL: Add userId here
   const handleResign = async () => {
     if (!roomId || !userId) return;
 
@@ -537,7 +559,7 @@ export default function BoardPage() {
                                 {/* The Piece */}
                                 {square.piece && (
                                   <div
-                                    className={`relative w-[50px] h-[50px] ${
+                                    className={`relative w-[50] h-[50] ${
                                       // If this piece is being captured (isHighlighted),
                                       // keep it below the highlight dot? Or remove dot?
                                       // Usually capture moves get a ring or corners,
@@ -621,7 +643,7 @@ export default function BoardPage() {
 
             {/* Move History */}
             {/* Move History */}
-            <Card className="flex flex-col h-full max-h-[400px]">
+            <Card className="flex flex-col h-full max-h-[400]">
               <div className="p-3 border-b border-border bg-muted/20">
                 <h3 className="font-bold text-sm">Move History</h3>
               </div>
@@ -685,6 +707,7 @@ export default function BoardPage() {
         <VersusMatchmaking
           userAvatarUrl={session.data?.user?.image || ""}
           userName={auth.user?.username || session.data?.user?.name || "user"}
+          opponent={opponentId}
         />
       )}
     </div>
