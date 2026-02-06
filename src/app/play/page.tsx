@@ -10,6 +10,7 @@ import { useSession } from "next-auth/react";
 import Image from "next/image";
 import VersusMatchmaking from "@/components/versus-matchmaking";
 import { useRouter } from "next/navigation";
+import { User } from "lucide-react";
 
 interface BoardPosition {
   piece: string | null;
@@ -253,7 +254,7 @@ export default function BoardPage() {
       (piece.piece &&
         piece.color === currentPlayer &&
         piece.color === myColor) ||
-      !opponentId
+      (!opponentId && piece.color === currentPlayer)
     ) {
       setSelectedSquare(square);
       const moves: [number, number][] = [];
@@ -435,10 +436,70 @@ export default function BoardPage() {
       console.error("Resign failed:", error);
     }
   };
+  const getGameStats = (currentBoard: Board) => {
+    const values: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9 };
+    const pieces = Object.entries(PIECES).map((piece, index) => {
+      return piece;
+    });
+    const remainingWhite = [];
+    const remainingBlack = [];
+    const pieceCount: Record<string, number> = {};
+    pieces.forEach((p) => (pieceCount[p[0]] = 0));
+    currentBoard.flat().forEach((cell) => {
+      if (cell.color === "white") remainingWhite.push(cell.piece);
+      if (cell.color === "black") remainingBlack.push(cell.piece);
+      if (cell.piece) pieceCount[cell.piece]++;
+    });
+    const capturedWhite: string[] = [];
+    const capturedBlack: string[] = [];
+    const advantage = 0;
+    const isUpperCase = (val: string) => val === val.toUpperCase();
+    Array.from(Object.entries(pieceCount)).forEach((pc) => {
+      let missingPieces: string[] = [];
+      switch (pc[0]) {
+        case "p":
+          if (pc[1] < 8)
+            missingPieces.push(...new Array(8 - pc[1]).fill("p", 0, 8 - pc[1]));
+          break;
+        case "q":
+          if (pc[1] < 1) missingPieces.push(pc[0]);
+          break;
+        case "k":
+          if (pc[1] < 1) missingPieces.push(pc[0]);
+          break;
+        case "P":
+          if (pc[1] < 8)
+            missingPieces.push(...new Array(8 - pc[1]).fill("P", 0, 8 - pc[1]));
+          break;
+        case "Q":
+          if (pc[1] < 1) missingPieces.push(pc[0]);
+          break;
+        case "K":
+          if (pc[1] < 1) missingPieces.push(pc[0]);
+          break;
+        default:
+          if (pc[1] < 2) missingPieces.push(pc[0]);
+      }
+      if (missingPieces) {
+        if (isUpperCase(pc[0])) capturedWhite.push(...missingPieces);
+        else capturedBlack.push(...missingPieces);
+      }
+    });
+
+    return {
+      capturedWhite,
+      capturedBlack,
+      advantage: 0,
+    };
+  };
   const isFlipped = myColor === "black";
   const renderRows = isFlipped ? [...board].reverse() : board;
   const renderRanks = isFlipped ? [...ranks].reverse() : ranks;
   const renderFiles = files;
+  const { capturedWhite, capturedBlack, advantage } = getGameStats(board);
+  console.log("captured black: ", capturedBlack);
+  console.log("captured white ", capturedWhite);
+  console.log("advantage: ", advantage);
   return (
     <div className="min-h-screen bg-background">
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -452,21 +513,45 @@ export default function BoardPage() {
           <div className="lg:col-span-3">
             <Card className="lg:p-6 md:p-3 p-1">
               {/* Player Info - Opponent */}
-              <div className="bg-card border border-border rounded-lg p-4 mb-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-bold text-sm">
-                      {playerOnBlack || `Computer (Black)`}
-                    </h3>
-                    <p className="text-xs text-foreground/70">Rating: 1800</p>
+              <div className="flex items-center justify-between w-full py-2 px-1 font-sans text-foreground">
+                <div className="flex items-center gap-3">
+                  {/* Avatar Section */}
+                  <div className="relative h-10 w-10 rounded bg-[#312e2b] flex items-center justify-center overflow-hidden border border-white/10">
+                    <User className="text-foreground/50 h-8 w-8" />
                   </div>
-                  <div className="text-2xl font-bold text-primary">00:30</div>
+
+                  {/* Identity & Captures */}
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-[14px] leading-tight">
+                        {opponentId || "Computer"}
+                      </h3>
+                      <span className="text-[12px] text-foreground/60 font-medium">
+                        (1800)
+                      </span>
+                    </div>
+
+                    {/* Captured Pieces Placeholder */}
+                    <div className="flex items-center gap-1">
+                      <CapturedPieces pieces={capturedWhite} color="w" />
+                      {advantage < 0 && (
+                        <span className="text-[10px] font-bold opacity-60 ml-1">
+                          +{Math.abs(advantage)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Timer Section - Chess.com style: sharp corners, high contrast */}
+                <div className="bg-[#262421] text-[#fff] px-3 py-1 rounded-sm font-mono text-xl font-bold shadow-inner border-b-2 border-white/5">
+                  00:30
                 </div>
               </div>
               {/* Chess Board */}
-              <div className="flex flex-col gap-0 w-fit select-none">
+              <div className="flex flex-col gap-0 select-none justify-between md:items-start md:justify-start items-center  w-full">
                 {/* File Labels (Top) */}
-                <div className="flex gap-0 lg:pl-10 md:pl-5 pl-1">
+                <div className="hidden md:flex gap-0 lg:pl-10 md:pl-5 pl-1">
                   {renderFiles.map((file) => (
                     <div
                       key={file}
@@ -479,7 +564,7 @@ export default function BoardPage() {
 
                 <div className="flex">
                   {/* Rank Labels (Left side) */}
-                  <div className="flex flex-col gap-0 pr-1">
+                  <div className="hidden md:flex flex-col gap-0 pr-1">
                     {renderRanks.map((_, rowIndex) => (
                       <div
                         key={rowIndex}
@@ -591,15 +676,39 @@ export default function BoardPage() {
                 </div>
               </div>
               {/* Player Info - White */}
-              <div className="bg-card border border-border rounded-lg p-4 mt-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-bold text-sm">
-                      {playerOnWhite || `You (White)`}
-                    </h3>
-                    <p className="text-xs text-foreground/70">Rating: 1850</p>
+              <div className="flex items-center justify-between w-full py-2 px-1 font-sans text-foreground">
+                <div className="flex items-center gap-3">
+                  {/* Avatar Section */}
+                  <div className="relative h-10 w-10 rounded bg-[#312e2b] flex items-center justify-center overflow-hidden border border-white/10">
+                    <User className="text-foreground/50 h-8 w-8" />
                   </div>
-                  <div className="text-2xl font-bold text-primary">10:00</div>
+
+                  {/* Identity & Captures */}
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-[14px] leading-tight">
+                        {userId || "Computer"}
+                      </h3>
+                      <span className="text-[12px] text-foreground/60 font-medium">
+                        (1800)
+                      </span>
+                    </div>
+
+                    {/* Captured Pieces Placeholder */}
+                    <div className="flex items-center gap-1">
+                      <CapturedPieces pieces={capturedBlack} color="b" />
+                      {advantage > 0 && (
+                        <span className="text-[10px] font-bold opacity-60 ml-1">
+                          +{advantage}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Timer Section - Chess.com style: sharp corners, high contrast */}
+                <div className="bg-[#262421] text-[#fff] px-3 py-1 rounded-sm font-mono text-xl font-bold shadow-inner border-b-2 border-white/5">
+                  00:30
                 </div>
               </div>
             </Card>
@@ -641,7 +750,6 @@ export default function BoardPage() {
               </div>
             </Card>
 
-            {/* Move History */}
             {/* Move History */}
             <Card className="flex flex-col h-full max-h-[400]">
               <div className="p-3 border-b border-border bg-muted/20">
@@ -713,3 +821,40 @@ export default function BoardPage() {
     </div>
   );
 }
+
+const CapturedPieces = ({
+  pieces,
+  color,
+}: {
+  pieces: string[];
+  color: "w" | "b";
+}) => {
+  // Sort pieces by value
+  const scoreMap: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9 };
+  const sortedPieces = [...pieces].sort((a, b) => scoreMap[a] - scoreMap[b]);
+
+  // Map piece codes to their visual representation (SVG or Unicode)
+  const pieceTheme: Record<string, string> = {
+    p: color === "w" ? "♟" : "♙",
+    n: color === "w" ? "♞" : "♘",
+    b: color === "w" ? "♝" : "♗",
+    r: color === "w" ? "♜" : "♖",
+    q: color === "w" ? "♛" : "♕",
+  };
+
+  return (
+    <div className="flex items-center h-4 gap-[-2px] opacity-80">
+      {sortedPieces.map((p, i) => (
+        <span
+          key={i}
+          className="text-sm transition-all hover:translate-y-[-2px]"
+          style={{
+            marginLeft: i > 0 && p === sortedPieces[i - 1] ? "-4px" : "2px",
+          }}
+        >
+          {pieceTheme[p]}
+        </span>
+      ))}
+    </div>
+  );
+};
