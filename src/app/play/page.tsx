@@ -456,7 +456,7 @@ export default function BoardPage() {
     const isUpperCase = (val: string) => val === val.toUpperCase();
     Array.from(Object.entries(pieceCount)).forEach((pc) => {
       let missingPieces: string[] = [];
-      switch (pc[0]) {
+      switch (pc[0].toLowerCase()) {
         case "p":
           if (pc[1] < 8)
             missingPieces.push(...new Array(8 - pc[1]).fill("p", 0, 8 - pc[1]));
@@ -465,16 +465,6 @@ export default function BoardPage() {
           if (pc[1] < 1) missingPieces.push(pc[0]);
           break;
         case "k":
-          if (pc[1] < 1) missingPieces.push(pc[0]);
-          break;
-        case "P":
-          if (pc[1] < 8)
-            missingPieces.push(...new Array(8 - pc[1]).fill("P", 0, 8 - pc[1]));
-          break;
-        case "Q":
-          if (pc[1] < 1) missingPieces.push(pc[0]);
-          break;
-        case "K":
           if (pc[1] < 1) missingPieces.push(pc[0]);
           break;
         default:
@@ -517,7 +507,7 @@ export default function BoardPage() {
                 <div className="flex items-center gap-3">
                   {/* Avatar Section */}
                   <div className="relative h-10 w-10 rounded bg-[#312e2b] flex items-center justify-center overflow-hidden border border-white/10">
-                    <User className="text-foreground/50 h-8 w-8" />
+                    <User className="text-accent dark:text-foreground/50 h-8 w-8" />
                   </div>
 
                   {/* Identity & Captures */}
@@ -680,7 +670,7 @@ export default function BoardPage() {
                 <div className="flex items-center gap-3">
                   {/* Avatar Section */}
                   <div className="relative h-10 w-10 rounded bg-[#312e2b] flex items-center justify-center overflow-hidden border border-white/10">
-                    <User className="text-foreground/50 h-8 w-8" />
+                    <User className="text-accent dark:text-foreground/50 h-8 w-8" />
                   </div>
 
                   {/* Identity & Captures */}

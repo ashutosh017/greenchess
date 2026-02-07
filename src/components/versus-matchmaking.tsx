@@ -33,7 +33,7 @@ const VersusMatchmaking = ({
         />
       </div>
 
-      <div className="relative z-10 w-full max-w-5xl flex items-center justify-between px-4 sm:px-12">
+      <div className="relative z-10 w-full max-w-5xl flex flex-col space-y-4 md:flex-row items-center justify-between px-4 sm:px-12">
         {/* LEFT SIDE: PLAYER (YOU) */}
         <div className="flex flex-col items-center gap-6 animate-in slide-in-from-left-10 duration-700 fade-in">
           {/* Avatar Ring */}
