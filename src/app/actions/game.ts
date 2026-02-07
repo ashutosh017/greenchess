@@ -4,18 +4,53 @@ import { pusherServer } from "@/lib/pusher-server"
 import redis from "@/lib/redis-client"
 import { v4 as uuidv4 } from 'uuid';
 import { Chess } from 'chess.js'
+import { findUserByEmail } from "./user";
+import { ApiResponse } from "@/lib/api-response";
+import { User } from "@/types/user";
 
-export async function triggerMatchMaking(userEmail: string) {
+export type TriggerMatchMakingResponse = {
+    status: "waiting"
+} | {
+    status: "matched"
+    userAvatarUrl: string | null,
+    opponentAvatarUrl: string | null,
+    roomId: string,
+    color: "w" | 'b',
+    opponent: string
+
+}
+export async function triggerMatchMaking(userEmail: string): Promise<ApiResponse<TriggerMatchMakingResponse>> {
     const QUEUE_KEY = 'waiting-users';
+    const user = await findUserByEmail(userEmail);
+    if (user.error) {
+        return {
+            success: false,
+            data: null,
+            error: user.error
+        }
+    }
+    if (!user.data) {
+        return {
+            success: false,
+            data: null,
+            error: "User not found"
+        }
+    }
 
     try {
-        const potentialOpponent = await redis.sPop(QUEUE_KEY);
+        const potentialOpponent = await redis.get(QUEUE_KEY);
 
+        let parsedPotentialOpponent: User;
         if (potentialOpponent) {
+            parsedPotentialOpponent = JSON.parse(potentialOpponent)
             // Edge case: If the user somehow matched with themselves (e.g. clicked twice fast)
-            if (potentialOpponent === userEmail) {
+            if (parsedPotentialOpponent.email === userEmail) {
                 await redis.sAdd(QUEUE_KEY, userEmail);
-                return { success: true, status: 'waiting' };
+                return {
+                    success: true, data: {
+                        status: 'waiting'
+                    }
+                };
             }
 
             // 1. Generate Room ID
@@ -23,8 +58,8 @@ export async function triggerMatchMaking(userEmail: string) {
 
             // 2. Randomly assign sides
             const isOpponentWhite = Math.random() > 0.5;
-            const whitePlayer = isOpponentWhite ? potentialOpponent : userEmail;
-            const blackPlayer = isOpponentWhite ? userEmail : potentialOpponent;
+            const whitePlayer = isOpponentWhite ? parsedPotentialOpponent.email : userEmail;
+            const blackPlayer = isOpponentWhite ? userEmail : parsedPotentialOpponent.email;
 
             // 3. IMPORTANT: Store the active game state in Redis
             // You will need this later to validate moves (e.g., ensuring White moves first)
@@ -46,16 +81,24 @@ export async function triggerMatchMaking(userEmail: string) {
 
             return {
                 success: true,
-                status: 'matched',
-                roomId,
-                color: whitePlayer === userEmail ? 'w' : 'b', // Tell the requestor their color
-                opponent: potentialOpponent
+                data: {
+                    status: 'matched',
+                    userAvatarUrl: user.data?.avatarUrl,
+                    opponentAvatarUrl: parsedPotentialOpponent.avatarUrl,
+                    roomId,
+                    color: whitePlayer === userEmail ? 'w' : 'b', // Tell the requestor their color
+                    opponent: parsedPotentialOpponent.email
+                }
             };
 
         } else {
             // No opponent found, add to queue
-            await redis.sAdd(QUEUE_KEY, userEmail);
-            return { success: true, status: 'waiting' };
+            await redis.set(QUEUE_KEY, JSON.stringify(user.data));
+            return {
+                success: true, data: {
+                    status: 'waiting'
+                }
+            };
         }
 
     } catch (error) {

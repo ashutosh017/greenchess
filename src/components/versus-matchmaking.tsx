@@ -7,10 +7,10 @@ const VersusMatchmaking = ({
   opponent, // null = searching, string = opponent name found
   opponentAvatarUrl, // Optional: Pass this if you have it, otherwise we generate a placeholder
 }: {
-  userAvatarUrl: string;
+  userAvatarUrl: string | null;
   userName: string;
   opponent: string | null;
-  opponentAvatarUrl?: string;
+  opponentAvatarUrl?: string | null;
 }) => {
   const [showMatchFound, setShowMatchFound] = useState(false);
 

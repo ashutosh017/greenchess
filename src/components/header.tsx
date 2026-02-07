@@ -30,7 +30,7 @@ export const Header = memo(() => {
                 className="object-contain drop-shadow-sm"
               />
             </div>
-            <span className="text-xl font-bold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
+            <span className="text-xl hidden md:inline font-bold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
               GreenChess
             </span>
           </Link>

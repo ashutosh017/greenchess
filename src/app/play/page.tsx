@@ -4,13 +4,24 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { pusherClient } from "@/lib/pusher-client";
-import { handleMove, resignGame, triggerMatchMaking } from "../actions/game";
+import {
+  handleMove,
+  resignGame,
+  triggerMatchMaking,
+  TriggerMatchMakingResponse,
+} from "../actions/game";
 import { useAuth } from "@/hooks/useAuth";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import VersusMatchmaking from "@/components/versus-matchmaking";
 import { useRouter } from "next/navigation";
-import { User } from "lucide-react";
+import {
+  BookOpenCheckIcon,
+  ChevronLeft,
+  LucideFlagTriangleLeft,
+  User,
+} from "lucide-react";
+import { FcLeft } from "react-icons/fc";
 
 interface BoardPosition {
   piece: string | null;
@@ -192,6 +203,10 @@ export default function BoardPage() {
   const [playerOnBlack, setPlayerOnBlack] = useState<string | null>("");
   const [userId, setUserId] = useState<string | null>("");
   const [roomId, setRoomId] = useState<string | null>(null);
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
+  const [opponentAvatarUrl, setOpponentAvatarUrl] = useState<string | null>(
+    null,
+  );
 
   const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
   const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
@@ -373,7 +388,7 @@ export default function BoardPage() {
     setSelectedSquare(null);
     setValidMoves([]);
   };
-  const resetBoard = () => {
+  const resetBoard = async () => {
     setBoard(createInitialBoard());
     setSelectedSquare(null);
     setValidMoves([]);
@@ -381,14 +396,24 @@ export default function BoardPage() {
     setMoveHistory([]);
     setGameStatus("White to move");
     if (!userId) return;
-    triggerMatchMaking(userId);
+    const resp = await triggerMatchMaking(userId);
+    if (resp.success && resp.data.status === "matched") {
+      setUserAvatarUrl(resp.data.userAvatarUrl);
+      setOpponentAvatarUrl(resp.data.opponentAvatarUrl);
+    }
+
     setMatchMaking(true);
   };
   useEffect(() => {
     if (!auth.user && session.status === "unauthenticated") return;
-    const userEmail = auth.user?.email || session.data?.user?.email;
+    const user = auth.user || session.data?.user;
+    const userEmail = user?.email;
+    if (!user) return;
+    // @ts-ignore
+    const userAvatarUrl = user.image || user.userAvatarUrl;
     if (!userEmail) return;
     setUserId(userEmail);
+    setUserAvatarUrl(userAvatarUrl);
   }, [auth, session]);
   useEffect(() => {
     // 1. Guard clause: Don't subscribe until we know who the user is
@@ -496,7 +521,10 @@ export default function BoardPage() {
         <div className="mb-8 flex items-center justify-between">
           <h1 className="text-4xl font-bold">Play Chess</h1>
           <Link href="/">
-            <Button variant="outline">Back to Home</Button>
+            <Button variant="outline">
+              <span className="hidden md:inline">Back to Home</span>
+              <ChevronLeft />
+            </Button>
           </Link>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -507,20 +535,37 @@ export default function BoardPage() {
                 <div className="flex items-center gap-3">
                   {/* Avatar Section */}
                   <div className="relative h-10 w-10 rounded bg-[#312e2b] flex items-center justify-center overflow-hidden border border-white/10">
-                    <User className="text-accent dark:text-foreground/50 h-8 w-8" />
+                    {opponentAvatarUrl ? (
+                      <img
+                        src={opponentAvatarUrl}
+                        alt="User Avatar"
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }} // Fallback if image fails to load
+                      />
+                    ) : (
+                      <User className="text-accent dark:text-foreground/50 h-8 w-8" />
+                    )}
                   </div>
 
                   {/* Identity & Captures */}
                   <div className="flex flex-col gap-0.5">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-[14px] leading-tight">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <h3
+                        className="
+        font-bold text-[14px] leading-tight
+        truncate
+        max-w-[80px] sm:max-w-[120px] md:max-w-[160px]
+      "
+                      >
                         {opponentId || "Computer"}
                       </h3>
-                      <span className="text-[12px] text-foreground/60 font-medium">
+
+                      <span className="text-[12px] text-foreground/60 font-medium shrink-0">
                         (1800)
                       </span>
                     </div>
-
                     {/* Captured Pieces Placeholder */}
                     <div className="flex items-center gap-1">
                       <CapturedPieces pieces={capturedWhite} color="w" />
@@ -670,16 +715,34 @@ export default function BoardPage() {
                 <div className="flex items-center gap-3">
                   {/* Avatar Section */}
                   <div className="relative h-10 w-10 rounded bg-[#312e2b] flex items-center justify-center overflow-hidden border border-white/10">
-                    <User className="text-accent dark:text-foreground/50 h-8 w-8" />
+                    {userAvatarUrl ? (
+                      <img
+                        src={userAvatarUrl}
+                        alt="User Avatar"
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }} // Fallback if image fails to load
+                      />
+                    ) : (
+                      <User className="text-accent dark:text-foreground/50 h-8 w-8" />
+                    )}
                   </div>
 
                   {/* Identity & Captures */}
                   <div className="flex flex-col gap-0.5">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-[14px] leading-tight">
-                        {userId || "Computer"}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <h3
+                        className="
+        font-bold text-[14px] leading-tight
+        truncate
+        max-w-[80px] sm:max-w-[120px] md:max-w-[160px]
+      "
+                      >
+                        {userId || "You"}
                       </h3>
-                      <span className="text-[12px] text-foreground/60 font-medium">
+
+                      <span className="text-[12px] text-foreground/60 font-medium shrink-0">
                         (1800)
                       </span>
                     </div>
@@ -803,9 +866,10 @@ export default function BoardPage() {
       </main>
       {matchMaking && (
         <VersusMatchmaking
-          userAvatarUrl={session.data?.user?.image || ""}
+          userAvatarUrl={userAvatarUrl}
           userName={auth.user?.username || session.data?.user?.name || "user"}
           opponent={opponentId}
+          opponentAvatarUrl={opponentAvatarUrl}
         />
       )}
     </div>

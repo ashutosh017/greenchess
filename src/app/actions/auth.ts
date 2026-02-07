@@ -12,6 +12,7 @@ export interface User {
     id: string,
     username: string,
     email: string,
+    avatarUrl: string | null
 }
 
 export async function logout() {
@@ -36,7 +37,8 @@ export const getAuthenticatedUser =
                     success: true, data: {
                         id: user.id,
                         username: user.username || "",
-                        email: user.email
+                        email: user.email,
+                        avatarUrl: user.image
                     },
                     error: null,
                 }
