@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import Link from "next/link";
-import { pusherClient } from "@/lib/pusher-client";
 import {
   handleMove,
   resignGame,
@@ -22,6 +21,7 @@ import {
   User,
 } from "lucide-react";
 import { FcLeft } from "react-icons/fc";
+import { getPusherClient } from "@/lib/pusher-client";
 
 interface BoardPosition {
   piece: string | null;
@@ -316,6 +316,7 @@ export default function BoardPage() {
   };
   useEffect(() => {
     if (!roomId) return;
+    const pusherClient = getPusherClient();
 
     const channel = pusherClient.subscribe(`room-${roomId}`);
 
@@ -418,6 +419,7 @@ export default function BoardPage() {
   useEffect(() => {
     // 1. Guard clause: Don't subscribe until we know who the user is
     if (!userId) return;
+    const pusherClient = getPusherClient();
 
     const channel = pusherClient.subscribe("game-channel");
 
