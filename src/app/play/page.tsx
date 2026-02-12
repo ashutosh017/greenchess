@@ -3,24 +3,13 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import Link from "next/link";
-import {
-  handleMove,
-  resignGame,
-  triggerMatchMaking,
-  TriggerMatchMakingResponse,
-} from "../actions/game";
+import { handleMove, resignGame, triggerMatchMaking } from "../actions/game";
 import { useAuth } from "@/hooks/useAuth";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import VersusMatchmaking from "@/components/versus-matchmaking";
 import { useRouter } from "next/navigation";
-import {
-  BookOpenCheckIcon,
-  ChevronLeft,
-  LucideFlagTriangleLeft,
-  User,
-} from "lucide-react";
-import { FcLeft } from "react-icons/fc";
+import { ChevronLeft, User } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
 
 interface BoardPosition {
@@ -390,6 +379,7 @@ export default function BoardPage() {
     setValidMoves([]);
   };
   const resetBoard = async () => {
+    setMatchMaking(true);
     setBoard(createInitialBoard());
     setSelectedSquare(null);
     setValidMoves([]);
@@ -402,11 +392,15 @@ export default function BoardPage() {
       setUserAvatarUrl(resp.data.userAvatarUrl);
       setOpponentAvatarUrl(resp.data.opponentAvatarUrl);
     }
-
-    setMatchMaking(true);
   };
   useEffect(() => {
-    if (!auth.user && session.status === "unauthenticated") return;
+    if (!auth.user && session.status === "unauthenticated") {
+      // router.push("/signin");
+      // console.log("have to return cos: ", auth.user, session.status);
+      return;
+    }
+    console.log("auth user: ", auth.user);
+    console.log("session status: ", session.status);
     const user = auth.user || session.data?.user;
     const userEmail = user?.email;
     if (!user) return;
@@ -447,6 +441,7 @@ export default function BoardPage() {
     return () => {
       pusherClient.unsubscribe("game-channel");
       channel.unbind("match-found"); // Unbind specific event is cleaner
+      // removeUserFromWaitingQueue(userId);
     };
   }, [userId]); // <--- CRITICAL: Add userId here
   const handleResign = async () => {

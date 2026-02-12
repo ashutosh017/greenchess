@@ -9,17 +9,21 @@ import { signIn, useSession } from "next-auth/react";
 import { FcGoogle } from "react-icons/fc";
 import { FaGithub } from "react-icons/fa";
 import { signup } from "../actions/auth";
-import { redirect, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function SignUp() {
   const session = useSession();
+  const auth = useAuth();
   const [state, formAction, isPending] = useActionState(signup, null);
   const router = useRouter();
   useEffect(() => {
-    if (session.status === "authenticated" || state?.success) {
+    if (session.status === "authenticated" || auth.user) {
       router.push("/"); // or router.refresh() if needed
+      console.log(session.status);
+      console.log(auth.user);
     }
-  }, [session.status]);
+  }, [session, auth, state]);
 
   const error = state?.error;
   const success = state?.success;

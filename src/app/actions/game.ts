@@ -19,6 +19,9 @@ export type TriggerMatchMakingResponse = {
     opponent: string
 
 }
+export async function removeUserFromWaitingQueue(userId: string) {
+
+}
 export async function triggerMatchMaking(userEmail: string): Promise<ApiResponse<TriggerMatchMakingResponse>> {
     const QUEUE_KEY = 'waiting-users';
     const user = await findUserByEmail(userEmail);
@@ -45,7 +48,8 @@ export async function triggerMatchMaking(userEmail: string): Promise<ApiResponse
             parsedPotentialOpponent = JSON.parse(potentialOpponent)
             // Edge case: If the user somehow matched with themselves (e.g. clicked twice fast)
             if (parsedPotentialOpponent.email === userEmail) {
-                await redis.sAdd(QUEUE_KEY, userEmail);
+                console.log("same person hit the new game button twice")
+                // await redis.set(QUEUE_KEY, userEmail);
                 return {
                     success: true, data: {
                         status: 'waiting'
@@ -78,6 +82,8 @@ export async function triggerMatchMaking(userEmail: string): Promise<ApiResponse
                 black: blackPlayer,
                 msg: "Match started!"
             });
+
+            redis.del(QUEUE_KEY)
 
             return {
                 success: true,

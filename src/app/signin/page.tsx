@@ -8,19 +8,21 @@ import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { FcGoogle } from "react-icons/fc";
 import { FaGithub } from "react-icons/fa";
-import { signin, signup } from "../actions/auth";
-import { auth } from "@/lib/auth";
+import { signin } from "../actions/auth";
 import { useActionState, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function SignIn() {
   const session = useSession();
+  const auth = useAuth();
   const [state, formAction, isPending] = useActionState(signin, null);
   const router = useRouter();
   useEffect(() => {
-    if (session.status === "authenticated" || state?.success) {
+    console.log(session.status, auth.user, state?.success);
+    if (session.status === "authenticated" || auth.user || state?.success) {
       router.push("/"); // or router.refresh() if needed
     }
-  }, [session.status, state]);
+  }, [session, auth, state, router]);
 
   return (
     <div className="min-h-screen bg-background">
