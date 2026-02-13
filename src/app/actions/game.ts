@@ -19,8 +19,11 @@ export type TriggerMatchMakingResponse = {
     opponent: string
 
 }
-export async function removeUserFromWaitingQueue(userId: string) {
-
+export async function triggerUserLeft(userId: string, roomId: string) {
+    console.log("user left trigggerd")
+    await pusherServer.trigger('presence-channel', 'user-left', {
+        userId, roomId
+    })
 }
 export async function triggerMatchMaking(userEmail: string): Promise<ApiResponse<TriggerMatchMakingResponse>> {
     const QUEUE_KEY = 'waiting-users';

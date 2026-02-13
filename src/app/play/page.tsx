@@ -3,7 +3,12 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import Link from "next/link";
-import { handleMove, resignGame, triggerMatchMaking } from "../actions/game";
+import {
+  handleMove,
+  resignGame,
+  triggerMatchMaking,
+  triggerUserLeft,
+} from "../actions/game";
 import { useAuth } from "@/hooks/useAuth";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
@@ -303,50 +308,6 @@ export default function BoardPage() {
       return newRow;
     });
   };
-  useEffect(() => {
-    if (!roomId) return;
-    const pusherClient = getPusherClient();
-
-    const channel = pusherClient.subscribe(`room-${roomId}`);
-
-    channel.bind("game-update", (data: any) => {
-      const { fen, turn, san, status, winner } = data; // Receive 'san'
-
-      const newBoard = fenToBoard(fen);
-      setBoard(newBoard);
-
-      const nextPlayer = turn === "w" ? "white" : "black";
-      setCurrentPlayer(nextPlayer);
-
-      if (status === "finished") {
-        setGameStatus(
-          `Game Over! ${winner === "draw" ? "Draw" : winner + " wins"}`,
-        );
-      } else {
-        setGameStatus(`${nextPlayer === "white" ? "White" : "Black"} to move`);
-      }
-
-      // --- HISTORY UPDATE LOGIC ---
-      if (san) {
-        setMoveHistory((prev) => {
-          // Check if the last move we have is the same as the incoming one
-          // This prevents duplication if our optimistic UI already added it
-          const lastLocalMove = prev[prev.length - 1];
-          if (lastLocalMove === san) {
-            return prev;
-          }
-          return [...prev, san];
-        });
-      }
-
-      // We DON'T clear selectedSquare here usually, otherwise it flickers
-      // if you select a piece fast while an opponent moves.
-      // But clearing validMoves is safe.
-      setValidMoves([]);
-    });
-
-    return () => pusherClient.unsubscribe(`room-${roomId}`);
-  }, [roomId]);
   const makeMove = (from: [number, number], to: [number, number]) => {
     const newBoard = board.map((row) => [...row]);
     const piece = newBoard[from[0]][from[1]];
@@ -355,24 +316,12 @@ export default function BoardPage() {
     newBoard[to[0]][to[1]] = piece;
     newBoard[from[0]][from[1]] = { piece: null, color: null };
 
-    // --- NOTATION GENERATION ---
     const toSquare = files[to[1]] + ranks[to[0]];
-
-    // 1. Get raw piece char (e.g., 'wP' -> 'P', 'bN' -> 'N')
     const rawPieceChar = piece.piece ? piece.piece.substring(1) : "";
-
-    // 2. Standard Notation rules:
-    // - Don't show 'P' for pawns
-    // - Show 'x' if capture
     const isCapture = target.piece !== null;
     const pieceChar =
       rawPieceChar === "P" ? (isCapture ? files[from[1]] : "") : rawPieceChar;
-
-    // const moveNotation = `${pieceChar}${isCapture ? "x" : ""}${toSquare}`;
-    // ---------------------------
-
     setBoard(newBoard);
-    // setMoveHistory([...moveHistory, moveNotation]); // Add clean notation
     setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
     setGameStatus(`${currentPlayer === "white" ? "Black" : "White"} to move`);
     setSelectedSquare(null);
@@ -393,10 +342,58 @@ export default function BoardPage() {
       setOpponentAvatarUrl(resp.data.opponentAvatarUrl);
     }
   };
+
+  useEffect(() => {
+    if (!roomId) return;
+    const pusherClient = getPusherClient();
+
+    const channel = pusherClient.subscribe(`room-${roomId}`);
+    const presenceChannel = pusherClient.subscribe(
+      `presence-channel-${roomId}`,
+    );
+    presenceChannel.bind("pusher:member_removed", (data: any) => {
+      console.log("parsed data: ", data);
+      alert(`user ${data.info.name} has left the game`);
+      setGameStatus(
+        `Game Over! ${["black", "white"][myColor !== "white" ? 0 : 1]} wins!`,
+      );
+      setOpponentId(null);
+      setOpponentAvatarUrl(null);
+    });
+
+    channel.bind("game-update", (data: any) => {
+      const { fen, turn, san, status, winner } = data;
+      const newBoard = fenToBoard(fen);
+      setBoard(newBoard);
+
+      const nextPlayer = turn === "w" ? "white" : "black";
+      setCurrentPlayer(nextPlayer);
+
+      if (status === "finished") {
+        setGameStatus(
+          `Game Over! ${winner === "draw" ? "Draw" : winner + " wins"}`,
+        );
+      } else {
+        setGameStatus(`${nextPlayer === "white" ? "White" : "Black"} to move`);
+      }
+
+      if (san) {
+        setMoveHistory((prev) => {
+          const lastLocalMove = prev[prev.length - 1];
+          if (lastLocalMove === san) {
+            return prev;
+          }
+          return [...prev, san];
+        });
+      }
+      setValidMoves([]);
+    });
+
+    return () => pusherClient.unsubscribe(`room-${roomId}`);
+  }, [roomId]);
+
   useEffect(() => {
     if (!auth.user && session.status === "unauthenticated") {
-      // router.push("/signin");
-      // console.log("have to return cos: ", auth.user, session.status);
       return;
     }
     console.log("auth user: ", auth.user);
@@ -411,49 +408,35 @@ export default function BoardPage() {
     setUserAvatarUrl(userAvatarUrl);
   }, [auth, session]);
   useEffect(() => {
-    // 1. Guard clause: Don't subscribe until we know who the user is
     if (!userId) return;
     const pusherClient = getPusherClient();
 
     const channel = pusherClient.subscribe("game-channel");
 
     channel.bind("match-found", (data: any) => {
-      // Now 'userId' inside here will be the current, correct value
       console.log("Current userId:", userId);
-
-      // Delay hiding the matchmaking screen so users see the "Match Found" animation
       setTimeout(() => {
         setMatchMaking(false);
-      }, 3000); // Reduced to 3s (8s is very long for a UI delay)
+      }, 3000);
 
       setPlayerOnWhite(data.white);
       setPlayerOnBlack(data.black);
       setRoomId(data.roomId);
 
-      // This logic will now work correctly
       if (data.white === userId) {
         setOpponentId(data.black);
       } else {
         setOpponentId(data.white);
       }
     });
-
-    return () => {
-      pusherClient.unsubscribe("game-channel");
-      channel.unbind("match-found"); // Unbind specific event is cleaner
-      // removeUserFromWaitingQueue(userId);
-    };
-  }, [userId]); // <--- CRITICAL: Add userId here
+  }, [userId]);
   const handleResign = async () => {
     if (!roomId || !userId) return;
 
-    // Optional: Add a confirmation dialog
     if (!confirm("Are you sure you want to resign?")) return;
 
     try {
       await resignGame(roomId, userId);
-      // No need to manually update state here;
-      // the Pusher 'game-update' listener will handle the "Game Over" UI.
     } catch (error) {
       console.error("Resign failed:", error);
     }
@@ -898,7 +881,7 @@ const CapturedPieces = ({
       {sortedPieces.map((p, i) => (
         <span
           key={i}
-          className="text-sm transition-all hover:translate-y-[-2px]"
+          className="text-sm transition-all hover:translate-y-[-2]"
           style={{
             marginLeft: i > 0 && p === sortedPieces[i - 1] ? "-4px" : "2px",
           }}
