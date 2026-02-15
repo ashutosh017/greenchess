@@ -75,7 +75,7 @@ export async function triggerMatchMaking(userEmail: string): Promise<ApiResponse
                 black: blackPlayer,
                 fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", // Standard start FEN
                 turn: 'w',
-                status: 'active'
+                status: 'active',
             });
 
             // 4. Notify both users via Pusher
@@ -84,6 +84,7 @@ export async function triggerMatchMaking(userEmail: string): Promise<ApiResponse
                 white: whitePlayer,
                 black: blackPlayer,
                 msg: "Match started!"
+
             });
 
             redis.del(QUEUE_KEY)
@@ -188,6 +189,7 @@ export async function handleMove(
             lastMove: move,
             san: moveResult.san, // <--- Added this field
             status: nextStatus,
+            // whiteTimeLeft:
             winner
         });
 

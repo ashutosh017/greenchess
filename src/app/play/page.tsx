@@ -16,6 +16,7 @@ import VersusMatchmaking from "@/components/versus-matchmaking";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, User } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
+import ChessClock from "@/components/chess-clock-props";
 
 interface BoardPosition {
   piece: string | null;
@@ -201,6 +202,13 @@ export default function BoardPage() {
   const [opponentAvatarUrl, setOpponentAvatarUrl] = useState<string | null>(
     null,
   );
+  // const [myLastMoveAt, setMyLastMoveAt] = useState<Date>(new Date());
+  // const [opponentLastMoveAt, setOpponentLastMoveAt] = useState<Date>(
+  //   new Date(),
+  // );
+  const [lastMoveAt, setLastMoveAt] = useState<Date>(new Date());
+  const [myTime, setMyTime] = useState<number>(600);
+  const [opponentTime, setOpponentTime] = useState<number>(600);
 
   const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
   const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
@@ -308,6 +316,7 @@ export default function BoardPage() {
       return newRow;
     });
   };
+
   const makeMove = (from: [number, number], to: [number, number]) => {
     const newBoard = board.map((row) => [...row]);
     const piece = newBoard[from[0]][from[1]];
@@ -322,7 +331,10 @@ export default function BoardPage() {
     const pieceChar =
       rawPieceChar === "P" ? (isCapture ? files[from[1]] : "") : rawPieceChar;
     setBoard(newBoard);
+
     setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
+    const currtime = Date.now();
+
     setGameStatus(`${currentPlayer === "white" ? "Black" : "White"} to move`);
     setSelectedSquare(null);
     setValidMoves([]);
@@ -353,7 +365,10 @@ export default function BoardPage() {
     );
     presenceChannel.bind("pusher:member_removed", (data: any) => {
       console.log("parsed data: ", data);
-      alert(`user ${data.info.name} has left the game`);
+      setMyTime(600);
+      setOpponentTime(600);
+
+      // alert(`user ${data.info.name} has left the game`);
       setGameStatus(
         `Game Over! ${["black", "white"][myColor !== "white" ? 0 : 1]} wins!`,
       );
@@ -362,12 +377,22 @@ export default function BoardPage() {
     });
 
     channel.bind("game-update", (data: any) => {
+      console.log("game update triggered");
       const { fen, turn, san, status, winner } = data;
       const newBoard = fenToBoard(fen);
       setBoard(newBoard);
 
       const nextPlayer = turn === "w" ? "white" : "black";
       setCurrentPlayer(nextPlayer);
+
+      const now = new Date();
+      const elapsed = Math.floor((now.getTime() - lastMoveAt.getTime()) / 1000);
+      if (nextPlayer === myColor) {
+        setOpponentTime((prev) => Math.max(0, prev - elapsed));
+      } else {
+        setMyTime((prev) => Math.max(0, prev - elapsed));
+      }
+      setLastMoveAt(now);
 
       if (status === "finished") {
         setGameStatus(
@@ -422,6 +447,8 @@ export default function BoardPage() {
       setPlayerOnWhite(data.white);
       setPlayerOnBlack(data.black);
       setRoomId(data.roomId);
+      setMyTime(600);
+      setOpponentTime(600);
 
       if (data.white === userId) {
         setOpponentId(data.black);
@@ -558,10 +585,11 @@ export default function BoardPage() {
                   </div>
                 </div>
 
-                {/* Timer Section - Chess.com style: sharp corners, high contrast */}
-                <div className="bg-[#262421] text-[#fff] px-3 py-1 rounded-sm font-mono text-xl font-bold shadow-inner border-b-2 border-white/5">
-                  00:30
-                </div>
+                <ChessClock
+                  initialTimeInSeconds={opponentTime}
+                  lastMoveAt={lastMoveAt}
+                  isActive={currentPlayer !== myColor && myColor !== null}
+                />
               </div>
               {/* Chess Board */}
               <div className="flex flex-col gap-0 select-none justify-between md:items-start md:justify-start items-center  w-full">
@@ -740,9 +768,11 @@ export default function BoardPage() {
                 </div>
 
                 {/* Timer Section - Chess.com style: sharp corners, high contrast */}
-                <div className="bg-[#262421] text-[#fff] px-3 py-1 rounded-sm font-mono text-xl font-bold shadow-inner border-b-2 border-white/5">
-                  00:30
-                </div>
+                <ChessClock
+                  initialTimeInSeconds={myTime}
+                  lastMoveAt={lastMoveAt}
+                  isActive={currentPlayer === myColor && myColor !== null}
+                />
               </div>
             </Card>
           </div>
