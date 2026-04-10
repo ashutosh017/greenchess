@@ -10,12 +10,14 @@ const redis = global.redis ?? createClient({
     password: env.REDIS_PASSWORD,
     socket: {
         host: env.REDIS_HOST,
-        port: 13105
-    }
+        port: env.REDIS_PORT as unknown as number,
+        connectTimeout: 10000
+    },
+
 });
 
 if (!global.redis) {
-    redis.on("error", (err) => console.error("Redis error", err));
+    redis.on("error", (err) => console.error(err));
     redis.connect();
     global.redis = redis;
 }

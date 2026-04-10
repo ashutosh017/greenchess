@@ -70,12 +70,16 @@ export async function triggerMatchMaking(userEmail: string): Promise<ApiResponse
 
             // 3. IMPORTANT: Store the active game state in Redis
             // You will need this later to validate moves (e.g., ensuring White moves first)
+            const now = Date.now();
             await redis.hSet(`game:${roomId}`, {
                 white: whitePlayer,
                 black: blackPlayer,
                 fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", // Standard start FEN
                 turn: 'w',
                 status: 'active',
+                whiteTime: '600',
+                blackTime: '600',
+                lastMoveAt: now.toString(),
             });
 
             // 4. Notify both users via Pusher
@@ -83,8 +87,10 @@ export async function triggerMatchMaking(userEmail: string): Promise<ApiResponse
                 roomId,
                 white: whitePlayer,
                 black: blackPlayer,
-                msg: "Match started!"
-
+                msg: "Match started!",
+                whiteTime: 600,
+                blackTime: 600,
+                lastMoveAt: now,
             });
 
             redis.del(QUEUE_KEY)
@@ -145,6 +151,21 @@ export async function handleMove(
             return { success: false, error: "Not your turn" };
         }
 
+        // Calculate time spent
+        const lastMoveAt = parseInt(gameState.lastMoveAt || Date.now().toString());
+        const now = Date.now();
+        // Add 500ms buffer for network latency
+        const elapsed = Math.floor(Math.max(0, now - lastMoveAt - 500) / 1000);
+
+        let whiteTime = parseInt(gameState.whiteTime || '600');
+        let blackTime = parseInt(gameState.blackTime || '600');
+
+        if (currentTurn === 'w') {
+            whiteTime = Math.max(0, whiteTime - elapsed);
+        } else {
+            blackTime = Math.max(0, blackTime - elapsed);
+        }
+
         // 3. Validate move logic using Chess.js
         const chess = new Chess(gameState.fen);
         let moveResult;
@@ -179,18 +200,23 @@ export async function handleMove(
             turn: nextTurn,
             status: nextStatus,
             lastMove: JSON.stringify(move),
+            whiteTime: whiteTime.toString(),
+            blackTime: blackTime.toString(),
+            lastMoveAt: now.toString(),
             ...(winner && { winner })
         });
 
-        // 6. Broadcast to everyone in the room (INCLUDING SAN)
+        // 6. Broadcast to everyone in the room (INCLUDING SAN and Time)
         await pusherServer.trigger(`room-${roomId}`, 'game-update', {
             fen: nextFen,
             turn: nextTurn,
             lastMove: move,
-            san: moveResult.san, // <--- Added this field
+            san: moveResult.san,
             status: nextStatus,
-            // whiteTimeLeft:
-            winner
+            winner,
+            whiteTime,
+            blackTime,
+            lastMoveAt: now,
         });
 
         return { success: true };

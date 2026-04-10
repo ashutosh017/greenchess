@@ -4,31 +4,35 @@ import { memo, useEffect, useState } from "react";
 
 interface ChessClockProps {
   initialTimeInSeconds: number; // The time left from your Prisma DB
-  lastMoveAt: string | Date; // The timestamp of the last turn change
+  lastMoveAt: number; // The local timestamp of the last turn change
   isActive: boolean; // Is it this player's turn?
 }
 
-const ChessClock = ({
+const ChessClock = memo(({
   initialTimeInSeconds,
   lastMoveAt,
   isActive,
 }: ChessClockProps) => {
   const [timeLeft, setTimeLeft] = useState(initialTimeInSeconds);
 
+  // Authoritatively update timeLeft whenever the initial value from the server changes
   useEffect(() => {
-    if (!isActive) {
-      setTimeLeft(initialTimeInSeconds);
-      return;
-    }
+    setTimeLeft(initialTimeInSeconds);
+  }, [initialTimeInSeconds]);
 
-    const interval = setInterval(() => {
-      const startTime = new Date(lastMoveAt).getTime();
+  useEffect(() => {
+    if (!isActive) return;
+
+    const tick = () => {
       const now = Date.now();
-      const elapsed = Math.floor((now - startTime) / 1000);
+      const elapsed = Math.floor((now - lastMoveAt) / 1000);
 
       // Ensure time doesn't go below 0
       setTimeLeft(Math.max(0, initialTimeInSeconds - elapsed));
-    }, 1000);
+    };
+
+    tick(); // Run immediately to avoid 1s delay
+    const interval = setInterval(tick, 1000);
 
     return () => clearInterval(interval);
   }, [isActive, initialTimeInSeconds, lastMoveAt]);
@@ -55,6 +59,8 @@ const ChessClock = ({
       {formatTime(timeLeft)}
     </div>
   );
-};
+});
+
+ChessClock.displayName = "ChessClock";
 
 export default ChessClock;

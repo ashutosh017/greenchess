@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, User } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
 import ChessClock from "@/components/chess-clock-props";
+import { getAuthenticatedUser } from "../actions/auth";
 
 interface BoardPosition {
   piece: string | null;
@@ -195,8 +196,8 @@ export default function BoardPage() {
   const [matchMaking, setMatchMaking] = useState<boolean>(false);
   const [opponentId, setOpponentId] = useState<string | null>(null);
   const [playerOnWhite, setPlayerOnWhite] = useState<string | null>(null);
-  const [playerOnBlack, setPlayerOnBlack] = useState<string | null>("");
-  const [userId, setUserId] = useState<string | null>("");
+  const [playerOnBlack, setPlayerOnBlack] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
   const [opponentAvatarUrl, setOpponentAvatarUrl] = useState<string | null>(
@@ -206,7 +207,7 @@ export default function BoardPage() {
   // const [opponentLastMoveAt, setOpponentLastMoveAt] = useState<Date>(
   //   new Date(),
   // );
-  const [lastMoveAt, setLastMoveAt] = useState<Date>(new Date());
+  const [lastMoveAt, setLastMoveAt] = useState<number>(Date.now());
   const [myTime, setMyTime] = useState<number>(600);
   const [opponentTime, setOpponentTime] = useState<number>(600);
 
@@ -217,9 +218,9 @@ export default function BoardPage() {
     return `${files[col]}${ranks[row]}`;
   };
   const myColor =
-    userId === playerOnWhite
+    userId && userId === playerOnWhite
       ? "white"
-      : userId === playerOnBlack
+      : userId && userId === playerOnBlack
         ? "black"
         : null;
   const handleSquareClick = async (row: number, col: number) => {
@@ -325,15 +326,22 @@ export default function BoardPage() {
     newBoard[to[0]][to[1]] = piece;
     newBoard[from[0]][from[1]] = { piece: null, color: null };
 
-    const toSquare = files[to[1]] + ranks[to[0]];
-    const rawPieceChar = piece.piece ? piece.piece.substring(1) : "";
-    const isCapture = target.piece !== null;
-    const pieceChar =
-      rawPieceChar === "P" ? (isCapture ? files[from[1]] : "") : rawPieceChar;
     setBoard(newBoard);
 
+    // Calculate elapsed time locally to update the "initial" time for the clock
+    const now = Date.now();
+    const elapsed = Math.floor((now - lastMoveAt) / 1000);
+
+    if (currentPlayer === (myColor === "black" ? "black" : "white")) {
+      setMyTime((prev) => Math.max(0, prev - elapsed));
+    } else {
+      setOpponentTime((prev) => Math.max(0, prev - elapsed));
+    }
+
     setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
-    const currtime = Date.now();
+
+    // Optimistically update lastMoveAt to current time to keep clocks in sync locally
+    setLastMoveAt(now);
 
     setGameStatus(`${currentPlayer === "white" ? "Black" : "White"} to move`);
     setSelectedSquare(null);
@@ -378,21 +386,32 @@ export default function BoardPage() {
 
     channel.bind("game-update", (data: any) => {
       console.log("game update triggered");
-      const { fen, turn, san, status, winner } = data;
+      const {
+        fen,
+        turn,
+        san,
+        status,
+        winner,
+        whiteTime,
+        blackTime,
+        lastMoveAt: serverLastMoveAt,
+      } = data;
       const newBoard = fenToBoard(fen);
       setBoard(newBoard);
 
       const nextPlayer = turn === "w" ? "white" : "black";
       setCurrentPlayer(nextPlayer);
 
-      const now = new Date();
-      const elapsed = Math.floor((now.getTime() - lastMoveAt.getTime()) / 1000);
-      if (nextPlayer === myColor) {
-        setOpponentTime((prev) => Math.max(0, prev - elapsed));
+      if (myColor === "black") {
+        setMyTime(blackTime);
+        setOpponentTime(whiteTime);
       } else {
-        setMyTime((prev) => Math.max(0, prev - elapsed));
+        // white or spectator
+        setMyTime(whiteTime);
+        setOpponentTime(blackTime);
       }
-      setLastMoveAt(now);
+
+      setLastMoveAt(Date.now());
 
       if (status === "finished") {
         setGameStatus(
@@ -415,7 +434,7 @@ export default function BoardPage() {
     });
 
     return () => pusherClient.unsubscribe(`room-${roomId}`);
-  }, [roomId]);
+  }, [roomId, myColor]);
 
   useEffect(() => {
     if (!auth.user && session.status === "unauthenticated") {
@@ -447,8 +466,16 @@ export default function BoardPage() {
       setPlayerOnWhite(data.white);
       setPlayerOnBlack(data.black);
       setRoomId(data.roomId);
-      setMyTime(600);
-      setOpponentTime(600);
+
+      if (data.white === userId) {
+        setMyTime(data.whiteTime || 600);
+        setOpponentTime(data.blackTime || 600);
+      } else {
+        setMyTime(data.blackTime || 600);
+        setOpponentTime(data.whiteTime || 600);
+      }
+
+      setLastMoveAt(Date.now());
 
       if (data.white === userId) {
         setOpponentId(data.black);
@@ -588,7 +615,7 @@ export default function BoardPage() {
                 <ChessClock
                   initialTimeInSeconds={opponentTime}
                   lastMoveAt={lastMoveAt}
-                  isActive={currentPlayer !== myColor && myColor !== null}
+                  isActive={currentPlayer === (isFlipped ? "white" : "black")}
                 />
               </div>
               {/* Chess Board */}
@@ -771,7 +798,7 @@ export default function BoardPage() {
                 <ChessClock
                   initialTimeInSeconds={myTime}
                   lastMoveAt={lastMoveAt}
-                  isActive={currentPlayer === myColor && myColor !== null}
+                  isActive={currentPlayer === (isFlipped ? "black" : "white")}
                 />
               </div>
             </Card>
