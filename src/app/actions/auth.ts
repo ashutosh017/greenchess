@@ -7,6 +7,20 @@ import { env } from "@/lib/env"
 import { ApiResponse } from "@/lib/api-response"
 import prisma from '@/lib/prisma'
 import { cache } from 'react'
+import { z } from 'zod'
+
+const signinSchema = z.object({
+    email: z.string().email("Invalid email address"),
+    password: z.string().min(1, "Password is required"),
+})
+
+const signupSchema = z.object({
+    username: z.string().min(3, "Username must be at least 3 characters"),
+    email: z.string().email("Invalid email address"),
+    password: z.string().min(6, "Password must be at least 6 characters"),
+    name: z.string().optional(),
+    country: z.string().optional(),
+})
 
 export interface User {
     id: string,
@@ -95,9 +109,22 @@ export async function verifyToken(token: string): Promise<ApiResponse<TokenPaylo
 
 export async function signin(prevState: any, formData: FormData): Promise<ApiResponse<{ token: string }>> {
 
+    const rawData = {
+        email: formData.get("email") as string,
+        password: formData.get("password") as string,
+    }
+
     try {
-        const email = formData.get("email") as string
-        const password = formData.get("password") as string
+
+        const validatedFields = signinSchema.safeParse(rawData)
+        if (!validatedFields.success) {
+            const errors = validatedFields.error.flatten().fieldErrors
+            return { success: false, data: null, error: errors.email?.[0] || errors.password?.[0] || "Validation failed", fields: rawData }
+        }
+
+        const { email, password } = validatedFields.data
+
+        // 1. Find user
 
         // 1. Find user
         const user = await prisma.user.findUnique({
@@ -108,14 +135,14 @@ export async function signin(prevState: any, formData: FormData): Promise<ApiRes
             console.log("user does not exist")
         if (!user || !user.password) {
             console.log("password does not exist")
-            return { success: false, data: null, error: "Invalid email or password" }
+            return { success: false, data: null, error: "Invalid email or password", fields: rawData }
         }
 
         // 2. Verify Password
         const isPasswordValid = await bcrypt.compare(password, user.password)
         if (!isPasswordValid) {
             console.log("password didnt match")
-            return { success: false, data: null, error: "Invalid email or password" }
+            return { success: false, data: null, error: "Invalid email or password", fields: rawData }
         }
 
         // 3. Create JWT Token using 'jose'
@@ -142,24 +169,38 @@ export async function signin(prevState: any, formData: FormData): Promise<ApiRes
         return { success: true, data: { token }, error: null }
     } catch (error) {
         console.error("Signin Error:", error)
-        return { success: false, data: null, error: "Something went wrong. Please try again." }
+        return { success: false, data: null, error: "Something went wrong. Please try again.", fields: rawData }
     }
 }
 
 
 export async function signup(prevState: any, formData: FormData): Promise<ApiResponse<{ token: string }>> {
-    try {
-        const username = formData.get("username") as string
-        const email = formData.get("email") as string
-        const password = formData.get("password") as string
-        const name = formData.get("name") as string
-        const country = formData.get("country") as string || "Unknown"
+    const rawData = {
+        username: formData.get("username") as string,
+        email: formData.get("email") as string,
+        password: formData.get("password") as string,
+        name: formData.get("name") as string | undefined,
+        country: formData.get("country") as string | undefined,
+    }
 
-        console.log(username)
-        console.log(email)
-        console.log(password)
-        console.log(name)
-        console.log(country)
+    try {
+
+        const validatedFields = signupSchema.safeParse(rawData)
+        if (!validatedFields.success) {
+            const errors = validatedFields.error.flatten().fieldErrors
+            return { 
+                success: false, 
+                data: null, 
+                error: errors.username?.[0] || errors.email?.[0] || errors.password?.[0] || "Validation failed", 
+                fields: {
+                    username: rawData.username,
+                    email: rawData.email,
+                    password: rawData.password,
+                }
+            }
+        }
+
+        const { username, email, password, name, country = "Unknown" } = validatedFields.data
 
         // 1. Check if user already exists
         const existingUser = await prisma.user.findFirst({
@@ -173,7 +214,7 @@ export async function signup(prevState: any, formData: FormData): Promise<ApiRes
         })
 
         if (existingUser) {
-            return { success: false, data: null, error: "A user with this email already exists" }
+            return { success: false, data: null, error: "A user with this email already exists", fields: { username, email, password } }
         }
 
         // 2. Hash the password
@@ -215,10 +256,15 @@ export async function signup(prevState: any, formData: FormData): Promise<ApiRes
 
     } catch (error) {
         console.error("Signup Error:", error)
+        const fields = {
+            username: rawData.username,
+            email: rawData.email,
+            password: rawData.password,
+        }
         if (error instanceof Error)
-            return { success: false, data: null, error: error.message }
+            return { success: false, data: null, error: error.message, fields }
         else
-            return { success: false, data: null, error: "Failed to create account. Please try again." }
+            return { success: false, data: null, error: "Failed to create account. Please try again.", fields }
     }
 }
 

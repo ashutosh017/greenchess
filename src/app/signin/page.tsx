@@ -18,11 +18,14 @@ export default function SignIn() {
   const [state, formAction, isPending] = useActionState(signin, null);
   const router = useRouter();
   useEffect(() => {
-    console.log(session.status, auth.user, state?.success);
-    if (session.status === "authenticated" || auth.user || state?.success) {
-      router.push("/"); // or router.refresh() if needed
+    if (state?.success) {
+      router.push("/");
+      router.refresh();
+    } else if (session.status === "authenticated" || auth.user) {
+      router.push("/");
+      router.refresh();
     }
-  }, [session, auth, state, router]);
+  }, [state, session.status, auth.user, router]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -51,6 +54,7 @@ export default function SignIn() {
                   type="email"
                   name="email"
                   placeholder="you@example.com"
+                  defaultValue={state?.fields?.email || ""}
                   disabled={isPending}
                 />
               </div>
@@ -63,6 +67,7 @@ export default function SignIn() {
                   type="password"
                   name="password"
                   placeholder="••••••••"
+                  defaultValue={state?.fields?.password || ""}
                   disabled={isPending}
                 />
               </div>

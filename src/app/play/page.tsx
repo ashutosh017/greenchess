@@ -907,6 +907,7 @@ export default function BoardPage() {
           userName={auth.user?.username || session.data?.user?.name || "user"}
           opponent={opponentId}
           opponentAvatarUrl={opponentAvatarUrl}
+          onCancel={() => setMatchMaking(false)}
         />
       )}
     </div>

@@ -1,10 +1,9 @@
 "use client";
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Header } from "@/components/header";
 import { signIn, useSession } from "next-auth/react";
 import { FcGoogle } from "react-icons/fc";
 import { FaGithub } from "react-icons/fa";
@@ -17,13 +16,39 @@ export default function SignUp() {
   const auth = useAuth();
   const [state, formAction, isPending] = useActionState(signup, null);
   const router = useRouter();
-  useEffect(() => {
-    if (session.status === "authenticated" || auth.user) {
-      router.push("/"); // or router.refresh() if needed
-      console.log(session.status);
-      console.log(auth.user);
+  const [passwordError, setPasswordError] = useState("");
+  
+  const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formData = new FormData(e.target.form!);
+    const password = formData.get("password") as string;
+    const confirmPassword = e.target.value;
+    if (password && confirmPassword && password !== confirmPassword) {
+      setPasswordError("Passwords do not match");
+    } else {
+      setPasswordError("");
     }
-  }, [session, auth, state]);
+  };
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    const formData = new FormData(e.currentTarget);
+    const password = formData.get("password") as string;
+    const confirmPassword = formData.get("confirmPassword") as string;
+    if (password !== confirmPassword) {
+      e.preventDefault();
+      setPasswordError("Passwords do not match");
+      return;
+    }
+  };
+
+  useEffect(() => {
+    if (state?.success) {
+      router.push("/");
+      router.refresh();
+    } else if (session.status === "authenticated" || auth.user) {
+      router.push("/");
+      router.refresh();
+    }
+  }, [state, session.status, auth.user, router]);
 
   const error = state?.error;
   const success = state?.success;
@@ -52,7 +77,7 @@ export default function SignUp() {
               </div>
             )}
 
-            <form action={formAction} className="space-y-4">
+            <form action={formAction} onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1.5">
                   Username
@@ -61,6 +86,7 @@ export default function SignUp() {
                   type="text"
                   name="username"
                   placeholder="your_username"
+                  defaultValue={state?.fields?.username || ""}
                   disabled={isPending || success}
                 />
               </div>
@@ -73,6 +99,7 @@ export default function SignUp() {
                   type="email"
                   name="email"
                   placeholder="you@example.com"
+                  defaultValue={state?.fields?.email || ""}
                   disabled={isPending}
                 />
               </div>
@@ -85,6 +112,7 @@ export default function SignUp() {
                   type="password"
                   name="password"
                   placeholder="••••••••"
+                  defaultValue={state?.fields?.password || ""}
                   disabled={isPending || success}
                 />
                 <p className="text-xs text-foreground/50 mt-1">
@@ -101,7 +129,11 @@ export default function SignUp() {
                   name="confirmPassword"
                   placeholder="••••••••"
                   disabled={isPending || success}
+                  onChange={handleConfirmPasswordChange}
                 />
+                {passwordError && (
+                  <p className="text-xs text-destructive mt-1">{passwordError}</p>
+                )}
               </div>
 
               <div className="flex items-start gap-2">

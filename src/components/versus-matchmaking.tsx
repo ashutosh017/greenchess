@@ -4,13 +4,15 @@ import { cn } from "@/lib/utils"; // Assuming you have a cn utility, if not, sta
 const VersusMatchmaking = ({
   userAvatarUrl,
   userName = "You",
-  opponent, // null = searching, string = opponent name found
-  opponentAvatarUrl, // Optional: Pass this if you have it, otherwise we generate a placeholder
+  opponent,
+  opponentAvatarUrl,
+  onCancel,
 }: {
   userAvatarUrl: string | null;
   userName: string;
   opponent: string | null;
   opponentAvatarUrl?: string | null;
+  onCancel?: () => void;
 }) => {
   const [showMatchFound, setShowMatchFound] = useState(false);
 
@@ -153,7 +155,10 @@ const VersusMatchmaking = ({
       {/* Optional: Close / Cancel Button at bottom */}
       {!showMatchFound && (
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2">
-          <button className="px-8 py-2 rounded-full border border-white/10 text-white/50 hover:bg-white/10 hover:text-white transition-colors text-sm uppercase tracking-widest font-bold">
+          <button 
+            onClick={onCancel}
+            className="px-8 py-2 rounded-full border border-white/10 text-white/50 hover:bg-white/10 hover:text-white transition-colors text-sm uppercase tracking-widest font-bold"
+          >
             Cancel Search
           </button>
         </div>
