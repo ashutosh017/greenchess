@@ -4,12 +4,14 @@ import { cn } from "@/lib/utils"; // Assuming you have a cn utility, if not, sta
 const VersusMatchmaking = ({
   userAvatarUrl,
   userName = "You",
+  userRating = 600,
   opponent,
   opponentAvatarUrl,
   onCancel,
 }: {
   userAvatarUrl: string | null;
   userName: string;
+  userRating?: number;
   opponent: string | null;
   opponentAvatarUrl?: string | null;
   onCancel?: () => void;
@@ -63,7 +65,7 @@ const VersusMatchmaking = ({
             </h2>
             <div className="inline-block px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20">
               <p className="text-blue-400 font-bold text-sm tracking-wide">
-                RATING: 1200
+                RATING: {userRating}
               </p>
             </div>
           </div>

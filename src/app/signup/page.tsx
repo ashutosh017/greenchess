@@ -128,6 +128,7 @@ export default function SignUp() {
                   type="password"
                   name="confirmPassword"
                   placeholder="••••••••"
+                  defaultValue={state?.fields?.confirmPassword || ""}
                   disabled={isPending || success}
                   onChange={handleConfirmPasswordChange}
                 />
@@ -136,22 +137,7 @@ export default function SignUp() {
                 )}
               </div>
 
-              <div className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded border border-border mt-1"
-                />
-                <span className="text-xs text-foreground/70">
-                  I agree to the{" "}
-                  <Link href="#" className="text-primary hover:underline">
-                    Terms of Service
-                  </Link>{" "}
-                  and{" "}
-                  <Link href="#" className="text-primary hover:underline">
-                    Privacy Policy
-                  </Link>
-                </span>
-              </div>
+
 
               <Button
                 type="submit"

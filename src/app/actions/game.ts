@@ -2,6 +2,7 @@
 
 import { pusherServer } from "@/lib/pusher-server"
 import redis from "@/lib/redis-client"
+import prisma from "@/lib/prisma"
 import { v4 as uuidv4 } from 'uuid';
 import { Chess } from 'chess.js'
 import { findUserByEmail } from "./user";
@@ -82,11 +83,22 @@ export async function triggerMatchMaking(userEmail: string): Promise<ApiResponse
                 lastMoveAt: now.toString(),
             });
 
+            const whiteUser = await prisma.user.findFirst({ where: { email: whitePlayer } });
+            const blackUser = await prisma.user.findFirst({ where: { email: blackPlayer } });
+            const whiteRating = whiteUser?.rating || 600;
+            const blackRating = blackUser?.rating || 600;
+            const whiteUsername = whiteUser?.username || whiteUser?.name || "Player";
+            const blackUsername = blackUser?.username || blackUser?.name || "Player";
+
             // 4. Notify both users via Pusher
             await pusherServer.trigger('game-channel', 'match-found', {
                 roomId,
                 white: whitePlayer,
                 black: blackPlayer,
+                whiteUsername,
+                blackUsername,
+                whiteRating,
+                blackRating,
                 msg: "Match started!",
                 whiteTime: 600,
                 blackTime: 600,
@@ -189,6 +201,7 @@ export async function handleMove(
             } else {
                 winner = 'draw'; // Stalemate, repetition, etc.
             }
+            await updateRatings(roomId, winner);
         }
 
         // 5. Update Redis with new state
@@ -264,10 +277,101 @@ export async function resignGame(roomId: string, userId: string) {
             msg: `${winner === 'white' ? 'Black' : 'White'} resigned.`
         });
 
+        await updateRatings(roomId, winner);
+
         return { success: true };
 
     } catch (error) {
         console.error("Resign error:", error);
         return { success: false, error: "Failed to resign" };
+    }
+}
+
+async function updateRatings(roomId: string, winner: string | null) {
+    const GAME_KEY = `game:${roomId}`;
+    try {
+        const gameState = await redis.hGetAll(GAME_KEY);
+        if (!gameState) return;
+
+        // Check if ratings are already updated for this game
+        if (gameState.ratingUpdated === 'true') {
+            return;
+        }
+
+        const whiteEmail = gameState.white;
+        const blackEmail = gameState.black;
+
+        if (!whiteEmail || !blackEmail) return;
+
+        if (winner === 'white') {
+            await prisma.user.update({
+                where: { email: whiteEmail },
+                data: { rating: { increment: 10 } }
+            });
+            await prisma.user.update({
+                where: { email: blackEmail },
+                data: { rating: { decrement: 10 } }
+            });
+        } else if (winner === 'black') {
+            await prisma.user.update({
+                where: { email: blackEmail },
+                data: { rating: { increment: 10 } }
+            });
+            await prisma.user.update({
+                where: { email: whiteEmail },
+                data: { rating: { decrement: 10 } }
+            });
+        }
+
+        // Set the flag so we don't update multiple times
+        await redis.hSet(GAME_KEY, {
+            ratingUpdated: 'true'
+        });
+    } catch (e) {
+        console.error("Error updating ratings:", e);
+    }
+}
+
+export async function handleOpponentLeft(roomId: string, userId: string) {
+    const GAME_KEY = `game:${roomId}`;
+    try {
+        const gameState = await redis.hGetAll(GAME_KEY);
+        if (!gameState || gameState.status === 'finished') {
+            return { success: false, error: "Game already finished or not found" };
+        }
+
+        // Determine winner: the player who did NOT leave (whose userId/email matches white or black)
+        let winner: 'white' | 'black';
+        if (gameState.white === userId) {
+            winner = 'white';
+        } else if (gameState.black === userId) {
+            winner = 'black';
+        } else {
+            return { success: false, error: "You are not in this game" };
+        }
+
+        // Update Redis status
+        await redis.hSet(GAME_KEY, {
+            status: 'finished',
+            winner: winner,
+            opponentLeft: 'true'
+        });
+
+        // Broadcast to pusher
+        await pusherServer.trigger(`room-${roomId}`, 'game-update', {
+            fen: gameState.fen,
+            turn: gameState.turn,
+            status: 'finished',
+            winner: winner,
+            msg: "Opponent left the game."
+        });
+
+        // Update ratings
+        await updateRatings(roomId, winner);
+
+        return { success: true };
+    } catch (error) {
+        console.error("handleOpponentLeft error:", error);
+        return { success: false, error: "Failed to process opponent left" };
     }
 }

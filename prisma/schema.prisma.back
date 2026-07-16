@@ -20,49 +20,49 @@ model User {
   email         String    @unique
   password      String?
   emailVerified DateTime?
-  image         String? // For Google profile picture
+  image         String?   // For Google profile picture
   rating        Int       @default(600) // General ELO
   country       String?
   createdAt     DateTime  @default(now())
 
   // Game Relations
-  gamesAsWhite Game[] @relation("WhitePlayer")
-  gamesAsBlack Game[] @relation("BlackPlayer")
-  gamesWon     Game[] @relation("GameWinner")
+  gamesAsWhite  Game[]    @relation("WhitePlayer")
+  gamesAsBlack  Game[]    @relation("BlackPlayer")
+  gamesWon      Game[]    @relation("GameWinner")
 
   // NextAuth Relations (Required for Google/GitHub Login)
-  accounts Account[]
-  sessions Session[]
+  accounts      Account[]
+  sessions      Session[]
 
   @@map("users")
 }
 
 model Game {
-  id String @id @default(uuid())
-
+  id            String     @id @default(uuid())
+  
   // Game Configuration
-  timeControl String // e.g., "10+0", "3+2" (Blitz/Rapid)
-  startingFen String @default("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-
+  timeControl   String     // e.g., "10+0", "3+2" (Blitz/Rapid)
+  startingFen   String     @default("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+  
   // Current State
-  currentFen String // The board state right now (important for reconnections)
-  pgn        String? @db.Text // Full move history (e4 e5 Nf3...)
+  currentFen    String     // The board state right now (important for reconnections)
+  pgn           String?    @db.Text // Full move history (e4 e5 Nf3...)
 
   // Players
   whitePlayerId String
   blackPlayerId String
-  whitePlayer   User   @relation("WhitePlayer", fields: [whitePlayerId], references: [id])
-  blackPlayer   User   @relation("BlackPlayer", fields: [blackPlayerId], references: [id])
+  whitePlayer   User       @relation("WhitePlayer", fields: [whitePlayerId], references: [id])
+  blackPlayer   User       @relation("BlackPlayer", fields: [blackPlayerId], references: [id])
 
   // Outcome
-  winnerId String?
-  winner   User?       @relation("GameWinner", fields: [winnerId], references: [id])
-  status   GameStatus  @default(IN_PROGRESS)
-  result   GameResult? // Null until game ends
+  winnerId      String?
+  winner        User?      @relation("GameWinner", fields: [winnerId], references: [id])
+  status        GameStatus @default(IN_PROGRESS)
+  result        GameResult? // Null until game ends
 
   // Timestamps
-  createdAt DateTime  @default(now())
-  endedAt   DateTime?
+  createdAt     DateTime   @default(now())
+  endedAt       DateTime?
 
   @@index([status]) // Useful for finding "active" games
   @@index([whitePlayerId, blackPlayerId]) // Useful for user match history
@@ -98,33 +98,32 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-
+ 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
+ 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+ 
   @@id([provider, providerAccountId])
   @@map("accounts")
 }
-
+ 
 model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+ 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   @@map("sessions")
 }
-
+ 
 model VerificationToken {
   identifier String
   token      String
   expires    DateTime
-
+ 
   @@id([identifier, token])
   @@map("verifications")
 }

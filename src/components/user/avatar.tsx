@@ -11,6 +11,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { signOut } from "next-auth/react";
 import { logout } from "@/app/actions/auth";
+import Link from "next/link";
 
 export function UserAvatar({ session }: { session: any }) {
   const user = session?.user;
@@ -52,7 +53,13 @@ export function UserAvatar({ session }: { session: any }) {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => handleSignOut()}>
+        <Link href="/profile">
+          <DropdownMenuItem className="cursor-pointer">
+            Profile
+          </DropdownMenuItem>
+        </Link>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => handleSignOut()} className="cursor-pointer">
           Log out
         </DropdownMenuItem>
       </DropdownMenuContent>
